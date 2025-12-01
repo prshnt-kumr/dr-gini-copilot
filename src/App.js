@@ -392,7 +392,7 @@ function App() {
     for (const fileItem of files) {
       const { file, name } = fileItem;
       const docId = Date.now();
-      setDocuments(prev => [...prev, { id: docId, name, size: formatSize(file.size), status: 'uploading', addedToKnowledge }]);
+      setDocuments(prev => [...prev, { id: docId, name, size: formatSize(file.size), status: 'uploading', addedToKnowledge: addToKnowledge }]);
 
       try {
         const base64 = await new Promise((resolve, reject) => {
