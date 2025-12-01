@@ -12,13 +12,13 @@ import {
 
 // ============ CONFIGURATION ============
 const CONFIG = {
-  TEXT_WEBHOOK_URL: 'https://prshntkumrai.app.n8n.cloud/webhook/Chatbot_text',
-  IMAGE_WEBHOOK_URL: 'https://prshntkumrai.app.n8n.cloud/webhook/Chatbot_image',
-  UPLOAD_WEBHOOK_URL: 'https://prshntkumrai.app.n8n.cloud/webhook/Chatbot_upload',
-  WEB_DOC_WEBHOOK_URL: 'https://prshntkumrai.app.n8n.cloud/webhook/Chatbot_webdoc',
-  DOCS_REGISTRY_URL: 'https://prshntkumrai.app.n8n.cloud/webhook/Chatbot_docs',
-  FEEDBACK_WEBHOOK_URL: 'https://prshntkumrai.app.n8n.cloud/webhook/Chatbot_feedback',
-  REQUEST_COOLDOWN: 180000
+  TEXT_WEBHOOK_URL: process.env.REACT_APP_TEXT_WEBHOOK_URL,
+  IMAGE_WEBHOOK_URL: process.env.REACT_APP_IMAGE_WEBHOOK_URL,
+  UPLOAD_WEBHOOK_URL: process.env.REACT_APP_UPLOAD_WEBHOOK_URL,
+  WEB_DOC_WEBHOOK_URL: process.env.REACT_APP_WEB_DOC_WEBHOOK_URL,
+  DOCS_REGISTRY_URL: process.env.REACT_APP_DOCS_REGISTRY_URL,
+  FEEDBACK_WEBHOOK_URL: process.env.REACT_APP_FEEDBACK_WEBHOOK_URL,
+  REQUEST_COOLDOWN: parseInt(process.env.REACT_APP_REQUEST_COOLDOWN || '180000', 10)
 };
 
 // ============ UTILITY FUNCTIONS ============
