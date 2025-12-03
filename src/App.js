@@ -479,22 +479,184 @@ function App() {
 
     const msgData = { message: currentMsg, sessionId: getSessionId(), userId: getUserId(), messageId: `msg_${Date.now()}`, timestamp: new Date().toISOString(), useWebSearch: webSearchEnabled, userDocuments: userDocs };
 
-    try {
-      const textRes = await fetch(CONFIG.TEXT_WEBHOOK_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(msgData) });
-      let textResult = textRes.ok ? await processResponse(textRes, false) : { html: '<p>Error</p>', usedWebSearch: false, webResults: null };
+    // Show initial processing message
+    const processingMessageId = Date.now() + 1;
+    const processingMessage = {
+      id: processingMessageId,
+      type: 'bot',
+      content: imageReq.needsImage ?
+        `<div class="p-3 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl text-center">
+          <div class="flex items-center justify-center gap-2">
+            <div class="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+            <span class="text-blue-700 font-medium">Processing your request and generating molecular structure for ${imageReq.compound}...</span>
+          </div>
+          <p class="text-xs text-slate-500 mt-2">This may take a moment as we prepare both text and visual content</p>
+        </div>` :
+        `<div class="p-3 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl text-center">
+          <div class="flex items-center justify-center gap-2">
+            <div class="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+            <span class="text-blue-700 font-medium">Dr. Gini is processing your request...</span>
+          </div>
+        </div>`,
+      timestamp: new Date(),
+      isHTML: true,
+      isProcessing: true
+    };
+    setMessages(p => [...p, processingMessage]);
 
+    try {
+      let textContent = '';
       let imageContent = '';
-      if (imageReq.needsImage) {
-        const imgRes = await fetch(CONFIG.IMAGE_WEBHOOK_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...msgData, compound: imageReq.compound }) });
-        if (imgRes.ok) { const imgResult = await processResponse(imgRes, true); imageContent = imgResult.html; }
+      let textError = null;
+      let imageError = null;
+      let textResult = { html: '', usedWebSearch: false, webResults: null };
+
+      // STEP 1: Get text response FIRST and wait for completion
+      logger.info('Fetching text response');
+      try {
+        const textRes = await fetch(CONFIG.TEXT_WEBHOOK_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(msgData)
+        });
+
+        if (!textRes.ok) {
+          throw new Error(`Text webhook error: ${textRes.status}`);
+        }
+
+        textResult = await processResponse(textRes, false);
+        textContent = textResult.html;
+        logger.info('Text content processed successfully');
+
+        if (!textContent || textContent.trim().length < 10) {
+          logger.warn('Text content is too short or empty');
+          textContent = `<div class="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <p class="text-sm text-yellow-800"><strong>Limited Response</strong></p>
+            <p class="text-sm text-yellow-700">The text response was shorter than expected. Please try rephrasing your question.</p>
+          </div>`;
+        }
+      } catch (error) {
+        logger.error('Text request failed', error);
+        textError = error;
+        textContent = `<div class="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700">
+          <strong>Text Response Error</strong><br/>
+          <p class="text-sm mt-1">Unable to process text response: ${error.message}</p>
+        </div>`;
       }
 
-      const combined = textResult.html + (imageContent ? `<div class="my-4"></div>${imageContent}` : '');
-      setMessages(p => [...p, { id: Date.now(), type: 'bot', content: combined, timestamp: new Date(), isHTML: true, messageId: `gini_${Date.now()}`, hasImages: !!imageContent, usedWebSearch: webSearchEnabled || textResult.usedWebSearch, webResults: textResult.webResults }]);
+      // Update processing message to show text is complete
+      if (imageReq.needsImage) {
+        setMessages(prev => prev.map(msg =>
+          msg.id === processingMessageId ? {
+            ...msg,
+            content: `<div class="p-3 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl text-center">
+              <div class="flex items-center justify-center gap-2 mb-2">
+                <div class="text-green-600 font-medium">✅ Text content ready</div>
+              </div>
+              <div class="flex items-center justify-center gap-2">
+                <div class="w-4 h-4 border-2 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
+                <span class="text-purple-700 font-medium">Now generating molecular structure for ${imageReq.compound}...</span>
+              </div>
+            </div>`
+          } : msg
+        ));
+      }
+
+      // STEP 2: Get image if needed (ONLY after text is complete)
+      if (imageReq.needsImage) {
+        logger.info('Starting image request after text completion', { compound: imageReq.compound });
+
+        try {
+          const imgRes = await fetch(CONFIG.IMAGE_WEBHOOK_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ...msgData, compound: imageReq.compound })
+          });
+
+          if (imgRes.ok) {
+            const imgResult = await processResponse(imgRes, true);
+            imageContent = imgResult.html;
+            logger.info('Image content processed successfully');
+          } else {
+            throw new Error(`Image webhook error: ${imgRes.status}`);
+          }
+        } catch (error) {
+          logger.error('Image request failed', error);
+          imageError = error;
+          imageContent = `<div class="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 mt-4">
+            <strong>Molecular Structure Unavailable</strong><br/>
+            <p class="text-sm mt-1">Unable to generate molecular structure: ${error.message}</p>
+          </div>`;
+        }
+      }
+
+      // STEP 3: Carefully combine content with visual separator
+      logger.debug('Combining content', { textLength: textContent.length, imageLength: imageContent.length });
+
+      let combinedContent = '';
+
+      // Always include text content first
+      if (textContent && textContent.trim()) {
+        combinedContent = textContent;
+      } else {
+        combinedContent = `<div class="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <p class="text-sm text-yellow-800"><strong>Text Content Missing</strong></p>
+          <p class="text-sm text-yellow-700">The text portion of the response was not received properly.</p>
+        </div>`;
+      }
+
+      // Add image content if available with visual separator
+      if (imageReq.needsImage && imageContent && imageContent.trim()) {
+        const spacing = '<div style="margin: 24px 0; border-top: 1px solid #e5e7eb; padding-top: 24px;"></div>';
+        combinedContent += spacing + imageContent;
+        logger.debug('Added image content to combined response');
+      }
+
+      // STEP 4: Create final combined message
+      const finalBotMessage = {
+        id: Date.now() + 2,
+        type: 'bot',
+        content: combinedContent,
+        timestamp: new Date(),
+        isHTML: true,
+        messageId: `gini_${Date.now()}`,
+        hasImages: imageReq.needsImage && !imageError,
+        usedWebSearch: webSearchEnabled || textResult.usedWebSearch,
+        webResults: textResult.webResults
+      };
+
+      // Replace processing message with final combined message
+      setMessages(prev => prev.map(msg =>
+        msg.id === processingMessageId ? finalBotMessage : msg
+      ));
+
+      logger.info('Combined message created successfully', {
+        hasText: !!textContent,
+        hasImage: !!imageContent,
+        textError: !!textError,
+        imageError: !!imageError
+      });
+
     } catch (e) {
       logger.error('Send error', e);
-      setMessages(p => [...p, { id: Date.now(), type: 'bot', content: `<div class="p-3 bg-red-50 rounded-lg text-red-600">Error: ${e.message}</div>`, timestamp: new Date(), isHTML: true, isError: true }]);
-    } finally { setIsLoading(false); }
+      const errorMsg = {
+        id: Date.now() + 3,
+        type: 'bot',
+        content: `<div class="p-3 bg-red-50 rounded-lg text-red-600">
+          <strong>Connection Error</strong><br/>
+          <p class="text-sm mt-1">${e.message}</p>
+        </div>`,
+        timestamp: new Date(),
+        isHTML: true,
+        isError: true
+      };
+
+      setMessages(prev => prev.map(msg =>
+        msg.id === processingMessageId ? errorMsg : msg
+      ));
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleQuickFeedback = async (messageId, rating) => {
