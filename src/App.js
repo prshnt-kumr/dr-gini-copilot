@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 
 // ============ CONFIGURATION ============
+// All webhook URLs are loaded from environment variables
 const CONFIG = {
   TEXT_WEBHOOK_URL: process.env.REACT_APP_TEXT_WEBHOOK_URL,
   IMAGE_WEBHOOK_URL: process.env.REACT_APP_IMAGE_WEBHOOK_URL,
