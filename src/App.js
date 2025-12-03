@@ -305,7 +305,66 @@ function App() {
   const [webSearchEnabled, setWebSearchEnabled] = useState(false);
   const [isLoadingDocs, setIsLoadingDocs] = useState(false);
 
+  // ============ AUTHENTICATION ============
+  const [user, setUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
   const messagesEndRef = useRef(null);
+
+  // Initialize Netlify Identity
+  useEffect(() => {
+    const netlifyIdentity = window.netlifyIdentity;
+    if (netlifyIdentity) {
+      netlifyIdentity.init();
+
+      // Check if user is already logged in
+      const currentUser = netlifyIdentity.currentUser();
+      if (currentUser) {
+        setUser(currentUser);
+      }
+      setAuthLoading(false);
+
+      // Listen for login/logout events
+      netlifyIdentity.on('login', (loggedInUser) => {
+        setUser(loggedInUser);
+        netlifyIdentity.close();
+        // Clear old anonymous session data
+        localStorage.removeItem('dr_gini_session_id');
+        localStorage.removeItem('dr_gini_user_id');
+      });
+
+      netlifyIdentity.on('logout', () => {
+        setUser(null);
+        // Clear session data on logout
+        localStorage.removeItem('dr_gini_session_id');
+        localStorage.removeItem('dr_gini_user_id');
+      });
+    } else {
+      setAuthLoading(false);
+    }
+  }, []);
+
+  // Get authenticated user ID
+  const getAuthenticatedUserId = () => {
+    if (user && user.email) {
+      return user.email;
+    }
+    // Fallback to anonymous ID if not authenticated (shouldn't happen with auth required)
+    return getAuthenticatedUserId();
+  };
+
+  // Login/Logout handlers
+  const handleLogin = () => {
+    if (window.netlifyIdentity) {
+      window.netlifyIdentity.open('login');
+    }
+  };
+
+  const handleLogout = () => {
+    if (window.netlifyIdentity) {
+      window.netlifyIdentity.logout();
+    }
+  };
 
   // Fetch user documents on load
   const fetchUserDocuments = async () => {
@@ -314,7 +373,7 @@ function App() {
       const response = await fetch(CONFIG.DOCS_REGISTRY_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'list', userId: getUserId(), sessionId: getSessionId(), timestamp: new Date().toISOString() })
+        body: JSON.stringify({ action: 'list', userId: getAuthenticatedUserId(), sessionId: getSessionId(), timestamp: new Date().toISOString() })
       });
       if (response.ok) {
         const data = await response.json();
@@ -343,7 +402,7 @@ function App() {
     try {
       const response = await fetch(CONFIG.DOCS_REGISTRY_URL, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'register', userId: getUserId(), sessionId: getSessionId(), document: docData, timestamp: new Date().toISOString() })
+        body: JSON.stringify({ action: 'register', userId: getAuthenticatedUserId(), sessionId: getSessionId(), document: docData, timestamp: new Date().toISOString() })
       });
       if (response.ok) return await response.json();
     } catch (e) { logger.error('Failed to register document', e); }
@@ -354,7 +413,7 @@ function App() {
     try {
       await fetch(CONFIG.DOCS_REGISTRY_URL, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'delete', userId: getUserId(), documentId: docId, driveFileId, timestamp: new Date().toISOString() })
+        body: JSON.stringify({ action: 'delete', userId: getAuthenticatedUserId(), documentId: docId, driveFileId, timestamp: new Date().toISOString() })
       });
       setDocuments(prev => prev.filter(d => d.id !== docId));
     } catch (e) { logger.error('Failed to delete document', e); }
@@ -364,7 +423,7 @@ function App() {
     try {
       const response = await fetch(CONFIG.WEB_DOC_WEBHOOK_URL, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'addToChat', userId: getUserId(), sessionId: getSessionId(), document: result, timestamp: new Date().toISOString() })
+        body: JSON.stringify({ action: 'addToChat', userId: getAuthenticatedUserId(), sessionId: getSessionId(), document: result, timestamp: new Date().toISOString() })
       });
       if (response.ok) {
         const data = await response.json();
@@ -378,7 +437,7 @@ function App() {
     try {
       const response = await fetch(CONFIG.WEB_DOC_WEBHOOK_URL, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'addToKnowledge', userId: getUserId(), sessionId: getSessionId(), document: result, timestamp: new Date().toISOString() })
+        body: JSON.stringify({ action: 'addToKnowledge', userId: getAuthenticatedUserId(), sessionId: getSessionId(), document: result, timestamp: new Date().toISOString() })
       });
       if (response.ok) {
         setMessages(prev => [...prev, { id: Date.now(), type: 'bot', content: `✅ "${result.title}" added to Knowledge Repository.`, timestamp: new Date() }]);
@@ -405,7 +464,7 @@ function App() {
 
         const response = await fetch(CONFIG.UPLOAD_WEBHOOK_URL, {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sessionId: getSessionId(), userId: getUserId(), fileName: name, fileData: base64, fileType: file.type, fileSize: file.size, addToKnowledge, timestamp: new Date().toISOString() })
+          body: JSON.stringify({ sessionId: getSessionId(), userId: getAuthenticatedUserId(), fileName: name, fileData: base64, fileType: file.type, fileSize: file.size, addToKnowledge, timestamp: new Date().toISOString() })
         });
 
         if (response.ok) {
@@ -478,7 +537,7 @@ function App() {
     setIsLoading(true);
     setLastRequestTime(Date.now());
 
-    const msgData = { message: currentMsg, sessionId: getSessionId(), userId: getUserId(), messageId: `msg_${Date.now()}`, timestamp: new Date().toISOString(), useWebSearch: webSearchEnabled, userDocuments: userDocs };
+    const msgData = { message: currentMsg, sessionId: getSessionId(), userId: getAuthenticatedUserId(), messageId: `msg_${Date.now()}`, timestamp: new Date().toISOString(), useWebSearch: webSearchEnabled, userDocuments: userDocs };
 
     // Show initial processing message
     const processingMessageId = Date.now() + 1;
@@ -662,14 +721,14 @@ function App() {
 
   const handleQuickFeedback = async (messageId, rating) => {
     try {
-      await fetch(CONFIG.FEEDBACK_WEBHOOK_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messageId, sessionId: getSessionId(), userId: getUserId(), thumbsRating: rating, feedbackType: 'quick', timestamp: new Date().toISOString() }) });
+      await fetch(CONFIG.FEEDBACK_WEBHOOK_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messageId, sessionId: getSessionId(), userId: getAuthenticatedUserId(), thumbsRating: rating, feedbackType: 'quick', timestamp: new Date().toISOString() }) });
       setUserFeedback(p => ({ ...p, [messageId]: { ...p[messageId], thumbs: rating } }));
     } catch (e) { logger.error('Feedback error', e); }
   };
 
   const submitDetailedFeedback = async (feedbackData) => {
     try {
-      await fetch(CONFIG.FEEDBACK_WEBHOOK_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...feedbackData, messageId: feedbackModal.messageId, sessionId: getSessionId(), userId: getUserId(), feedbackType: 'detailed', timestamp: new Date().toISOString() }) });
+      await fetch(CONFIG.FEEDBACK_WEBHOOK_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...feedbackData, messageId: feedbackModal.messageId, sessionId: getSessionId(), userId: getAuthenticatedUserId(), feedbackType: 'detailed', timestamp: new Date().toISOString() }) });
       setFeedbackModal({ open: false, messageId: null });
     } catch (e) { logger.error('Feedback error', e); }
   };
@@ -692,7 +751,7 @@ function App() {
   const copyToClipboard = (text, id) => { navigator.clipboard.writeText(htmlToText(text)); setCopiedId(id); setTimeout(() => setCopiedId(null), 2000); };
   const downloadChat = () => {
     const content = messages.filter(m => !m.isError).map(m => `[${formatTime(m.timestamp)}] ${m.type === 'user' ? 'You' : 'Dr. Gini'}: ${htmlToText(m.content)}`).join('\n\n');
-    const blob = new Blob([`Dr. Gini Session\nUser: ${getUserId()}\n${'='.repeat(40)}\n\n${content}`], { type: 'text/plain' });
+    const blob = new Blob([`Dr. Gini Session\nUser: ${getAuthenticatedUserId()}\n${'='.repeat(40)}\n\n${content}`], { type: 'text/plain' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'research-session.txt'; a.click();
   };
 
@@ -703,6 +762,44 @@ function App() {
     { icon: Lightbulb, text: 'Summarize my uploaded documents', color: 'text-amber-500' },
   ];
 
+  // Show loading screen while checking authentication
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-gradient-to-br from-slate-900 to-blue-900">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 text-blue-400 mx-auto mb-4 animate-spin" />
+          <p className="text-slate-300">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show login screen if not authenticated
+  if (!user) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-purple-900">
+        <div className="bg-white/10 backdrop-blur-lg p-10 rounded-2xl border border-white/20 shadow-2xl text-center max-w-md">
+          <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-lg">
+            <Atom className="w-10 h-10 text-white" />
+          </div>
+          <h1 className="text-3xl font-bold text-white mb-2">Dr. Gini</h1>
+          <p className="text-blue-200 mb-8">AI-powered Research Copilot</p>
+          <p className="text-slate-300 mb-6">Sign in to access your personalized research assistant, manage documents, and track your research history.</p>
+          <button
+            onClick={handleLogin}
+            className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-8 py-3 rounded-xl font-semibold shadow-lg transition-all duration-200 transform hover:scale-105"
+          >
+            Sign In / Sign Up
+          </button>
+          <p className="text-xs text-slate-400 mt-6">
+            Your documents and chat history will be securely associated with your account
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Main app (user is authenticated)
   return (
     <div className="flex h-screen bg-slate-50">
       {/* Sidebar */}
@@ -712,9 +809,18 @@ function App() {
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-lg shadow-blue-500/25"><Atom className="w-5 h-5 text-white" /></div>
             <div><h1 className="font-semibold text-slate-900">Dr. Gini</h1><p className="text-xs text-slate-500">Research Copilot</p></div>
           </div>
-          <div className="mt-3 flex items-center gap-2 px-2 py-1.5 bg-slate-100 rounded-lg">
-            <UserCircle className="w-4 h-4 text-slate-500" />
-            <span className="text-xs text-slate-600 truncate">{getUserId().slice(-12)}</span>
+          <div className="mt-3 flex items-center justify-between gap-2 px-2 py-1.5 bg-slate-100 rounded-lg">
+            <div className="flex items-center gap-2 min-w-0 flex-1">
+              <UserCircle className="w-4 h-4 text-slate-500 flex-shrink-0" />
+              <span className="text-xs text-slate-600 truncate" title={user?.email}>{user?.email || 'Guest'}</span>
+            </div>
+            <button
+              onClick={handleLogout}
+              className="flex-shrink-0 text-xs text-slate-500 hover:text-red-600 hover:bg-red-50 px-2 py-1 rounded transition-colors"
+              title="Logout"
+            >
+              Logout
+            </button>
           </div>
         </div>
 
