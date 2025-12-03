@@ -398,17 +398,6 @@ function App() {
   }, [cooldownTimeLeft]);
 
   // Document actions
-  const registerDocument = async (docData) => {
-    try {
-      const response = await fetch(CONFIG.DOCS_REGISTRY_URL, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'register', userId: getAuthenticatedUserId(), sessionId: getSessionId(), document: docData, timestamp: new Date().toISOString() })
-      });
-      if (response.ok) return await response.json();
-    } catch (e) { logger.error('Failed to register document', e); }
-    return null;
-  };
-
   const deleteDocument = async (docId, driveFileId) => {
     try {
       await fetch(CONFIG.DOCS_REGISTRY_URL, {
@@ -469,7 +458,7 @@ function App() {
 
         if (response.ok) {
           const result = await response.json();
-          await registerDocument({ fileName: name, fileSize: file.size, fileType: file.type, driveId: result.fileId, type: addToKnowledge ? 'knowledge' : 'explore', source: 'upload' });
+          // Upload workflow now saves to database directly, no need to register separately
           setDocuments(prev => prev.map(d => d.id === docId ? { ...d, status: 'ready', driveFileId: result.fileId } : d));
         } else { throw new Error('Upload failed'); }
       } catch (error) {
