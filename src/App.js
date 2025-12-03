@@ -388,7 +388,12 @@ function App() {
     finally { setIsLoadingDocs(false); }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => { fetchUserDocuments(); }, [fetchUserDocuments]);
+  // Fetch documents only after user is authenticated
+  useEffect(() => {
+    if (user && !authLoading) {
+      fetchUserDocuments();
+    }
+  }, [user, authLoading, fetchUserDocuments]);
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
   useEffect(() => {
     if (cooldownTimeLeft > 0) {
