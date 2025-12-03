@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { 
   Send, FileText, Upload, Bookmark, Plus, 
   Sparkles, Clock, Trash2, Download, Copy, Check, Menu, X,
@@ -350,7 +350,7 @@ function App() {
       return user.email;
     }
     // Fallback to anonymous ID if not authenticated (shouldn't happen with auth required)
-    return getAuthenticatedUserId();
+    return getUserId();
   };
 
   // Login/Logout handlers
@@ -367,7 +367,7 @@ function App() {
   };
 
   // Fetch user documents on load
-  const fetchUserDocuments = async () => {
+  const fetchUserDocuments = useCallback(async () => {
     setIsLoadingDocs(true);
     try {
       const response = await fetch(CONFIG.DOCS_REGISTRY_URL, {
@@ -386,9 +386,9 @@ function App() {
       }
     } catch (e) { logger.error('Failed to load documents', e); }
     finally { setIsLoadingDocs(false); }
-  };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => { fetchUserDocuments(); }, []);
+  useEffect(() => { fetchUserDocuments(); }, [fetchUserDocuments]);
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
   useEffect(() => {
     if (cooldownTimeLeft > 0) {
