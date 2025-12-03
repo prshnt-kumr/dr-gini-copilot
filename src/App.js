@@ -836,17 +836,6 @@ function App() {
                 </div>
               </div>
             ))}
-            {isLoading && (
-              <div className="flex gap-4">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center"><Loader2 className="w-4 h-4 text-white animate-spin" /></div>
-                <div className="bg-white border border-slate-200 rounded-2xl rounded-tl-md px-4 py-3 shadow-sm">
-                  <div className="flex items-center gap-3">
-                    <div className="flex gap-1">{[0, 150, 300].map(d => <div key={d} className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: `${d}ms` }} />)}</div>
-                    <span className="text-sm text-slate-500">{webSearchEnabled ? 'Searching...' : 'Analyzing...'}</span>
-                  </div>
-                </div>
-              </div>
-            )}
             <div ref={messagesEndRef} />
           </div>
         </div>
