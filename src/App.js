@@ -386,7 +386,7 @@ function App() {
       }
     } catch (e) { logger.error('Failed to load documents', e); }
     finally { setIsLoadingDocs(false); }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [user]); // Include user so function updates when user logs in
 
   // Fetch documents only after user is authenticated
   useEffect(() => {
