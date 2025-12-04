@@ -700,6 +700,7 @@ function App() {
   };
 
   const sendMessage = async () => {
+    logger.debug('sendMessage called', { isLoading, messageLength: inputMessage.length, mode: chatMode });
     if (!inputMessage.trim() || isLoading) return;
     if (!checkCooldown()) {
       setMessages(p => [...p, { id: Date.now(), type: 'bot', content: `Please wait ${formatTimeLeft(cooldownTimeLeft)}.`, timestamp: new Date(), isError: true }]);
@@ -709,7 +710,9 @@ function App() {
     const imageReq = detectImageRequirement(inputMessage);
     const userDocs = documents.filter(d => d.status === 'ready').map(d => ({ id: d.driveFileId, name: d.name, type: d.addedToKnowledge ? 'knowledge' : 'explore' }));
 
-    setMessages(p => [...p, { id: Date.now(), type: 'user', content: inputMessage, timestamp: new Date(), webSearchEnabled }]);
+    const userMessageId = Date.now();
+    logger.debug('Adding user message', { id: userMessageId, mode: chatMode });
+    setMessages(p => [...p, { id: userMessageId, type: 'user', content: inputMessage, timestamp: new Date(), webSearchEnabled }]);
     const currentMsg = inputMessage;
     setInputMessage('');
     setIsLoading(true);
@@ -745,14 +748,18 @@ function App() {
         `<div class="p-3 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl text-center">
           <div class="flex items-center justify-center gap-2">
             <div class="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-            <span class="text-blue-700 font-medium">Dr. Gini is processing your request...</span>
+            <span class="text-blue-700 font-medium">Processing your request...</span>
           </div>
         </div>`,
       timestamp: new Date(),
       isHTML: true,
       isProcessing: true
     };
-    setMessages(p => [...p, processingMessage]);
+    logger.info('Adding processing message', { id: processingMessageId, mode: chatMode });
+    setMessages(p => {
+      logger.debug('Current message count before adding processing', { count: p.length });
+      return [...p, processingMessage];
+    });
 
     try {
       let textContent = '';
@@ -764,12 +771,14 @@ function App() {
       // STEP 1: Get text response FIRST and wait for completion
       const webhookUrl = chatMode === 'web-search' ? CONFIG.WEB_SEARCH_WEBHOOK_URL : CONFIG.TEXT_WEBHOOK_URL;
       logger.info(`Fetching ${chatMode} response from ${webhookUrl}`);
+      logger.debug('Message data being sent', { messageId: msgData.messageId, mode: chatMode, useWebSearch: msgData.useWebSearch });
       try {
         const textRes = await fetch(webhookUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(msgData)
         });
+        logger.debug('Webhook response received', { status: textRes.ok, mode: chatMode });
 
         if (!textRes.ok) {
           throw new Error(`Text webhook error: ${textRes.status}`);
@@ -797,6 +806,7 @@ function App() {
 
       // Update processing message to show text is complete
       if (imageReq.needsImage) {
+        logger.debug('Updating processing message for image generation', { processingMessageId });
         setMessages(prev => prev.map(msg =>
           msg.id === processingMessageId ? {
             ...msg,
@@ -877,9 +887,14 @@ function App() {
       };
 
       // Replace processing message with final combined message
-      setMessages(prev => prev.map(msg =>
-        msg.id === processingMessageId ? finalBotMessage : msg
-      ));
+      logger.debug('Replacing processing message', { processingMessageId, finalMessageId: finalBotMessage.id });
+      setMessages(prev => {
+        const processingCount = prev.filter(m => m.id === processingMessageId).length;
+        logger.debug('Processing messages found', { count: processingCount, totalMessages: prev.length });
+        return prev.map(msg =>
+          msg.id === processingMessageId ? finalBotMessage : msg
+        );
+      });
 
       logger.info('Combined message created successfully', {
         hasText: !!textContent,
