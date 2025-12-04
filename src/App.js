@@ -373,7 +373,7 @@ function App() {
       const response = await fetch(CONFIG.DOCS_REGISTRY_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'list', userId: getAuthenticatedUserId(), sessionId: getSessionId(), timestamp: new Date().toISOString() })
+        body: JSON.stringify({ action: 'list', userId: user && user.email ? user.email : getUserId(), sessionId: getSessionId(), timestamp: new Date().toISOString() })
       });
       if (response.ok) {
         const data = await response.json();
