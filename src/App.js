@@ -501,7 +501,6 @@ function App() {
   const handleDownloadWebDoc = (result) => { if (result.pdfUrl || result.url) window.open(result.pdfUrl || result.url, '_blank'); };
 
   // ============ CHAT HISTORY FUNCTIONS ============
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   const fetchConversations = useCallback(async () => {
     setIsLoadingHistory(true);
     try {
@@ -526,9 +525,8 @@ function App() {
     } finally {
       setIsLoadingHistory(false);
     }
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   const saveConversation = useCallback(async () => {
     if (messages.length <= 1) return; // Don't save if only welcome message
 
@@ -558,7 +556,7 @@ function App() {
     } catch (e) {
       logger.error('Failed to save conversation', e);
     }
-  }, [messages, chatMode, currentConversationId]);
+  }, [messages, chatMode, currentConversationId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadConversation = async (conversationId) => {
     try {
