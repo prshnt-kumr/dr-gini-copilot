@@ -1026,7 +1026,7 @@ function App() {
           </div>
         </div>
 
-        {messages.length <= 2 && (
+        {messages.length <= 2 && chatMode === 'research' && (
           <div className="px-4 pb-4">
             <div className="max-w-3xl mx-auto">
               <p className="text-xs text-slate-500 mb-3 font-medium">TRY THESE</p>
@@ -1047,20 +1047,26 @@ function App() {
         <div className="border-t border-slate-200 bg-white p-4">
           <div className="max-w-3xl mx-auto">
             <div className="flex items-end gap-3 bg-slate-50 rounded-2xl p-2 border border-slate-200 focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100">
-              <button onClick={() => setUploadModalOpen(true)} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded-xl"><Upload className="w-5 h-5" /></button>
+              {chatMode === 'research' && (
+                <button onClick={() => setUploadModalOpen(true)} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded-xl"><Upload className="w-5 h-5" /></button>
+              )}
               <textarea value={inputMessage} onChange={(e) => setInputMessage(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
-                placeholder="Ask about molecules, search papers, or chat with documents..."
+                placeholder={chatMode === 'web-search' ? 'Search the web...' : 'Ask about molecules, search papers, or chat with documents...'}
                 className="flex-1 bg-transparent border-none outline-none resize-none text-sm text-slate-700 placeholder:text-slate-400 py-2 max-h-32" rows={1} disabled={isLoading || cooldownTimeLeft > 0} />
               <button onClick={sendMessage} disabled={!inputMessage.trim() || isLoading || cooldownTimeLeft > 0}
                 className="p-2.5 bg-slate-900 text-white rounded-xl hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed"><Send className="w-4 h-4" /></button>
             </div>
             <div className="flex items-center justify-between mt-3">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" checked={webSearchEnabled} onChange={(e) => setWebSearchEnabled(e.target.checked)} className="w-4 h-4 rounded border-slate-300 text-blue-600" />
-                <Globe className={`w-4 h-4 ${webSearchEnabled ? 'text-blue-600' : 'text-slate-400'}`} />
-                <span className={`text-sm ${webSearchEnabled ? 'text-blue-600 font-medium' : 'text-slate-500'}`}>Web search</span>
-              </label>
+              {chatMode === 'research' ? (
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={webSearchEnabled} onChange={(e) => setWebSearchEnabled(e.target.checked)} className="w-4 h-4 rounded border-slate-300 text-blue-600" />
+                  <Globe className={`w-4 h-4 ${webSearchEnabled ? 'text-blue-600' : 'text-slate-400'}`} />
+                  <span className={`text-sm ${webSearchEnabled ? 'text-blue-600 font-medium' : 'text-slate-500'}`}>Include web results</span>
+                </label>
+              ) : (
+                <div></div>
+              )}
               <span className="text-xs text-slate-400">Session: {getSessionId().slice(-8)}</span>
             </div>
           </div>
