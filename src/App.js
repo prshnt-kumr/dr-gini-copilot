@@ -25,7 +25,10 @@ const CONFIG = {
 // ============ UTILITY FUNCTIONS ============
 const logger = {
   info: (msg, data) => console.log(`🟢 [DrGini] ${msg}`, data || ''),
-  error: (msg, data) => console.error(`🔴 [DrGini] ${msg}`, data || '')
+  warn: (msg, data) => console.warn(`🟡 [DrGini] ${msg}`, data || ''),
+  error: (msg, data) => console.error(`🔴 [DrGini] ${msg}`, data || ''),
+  debug: (msg, data) => console.log(`🔵 [DEBUG] ${msg}`, data || ''),
+  image: (msg, data) => console.log(`🖼️ [IMAGE] ${msg}`, data || '')
 };
 
 const getSessionId = () => {
