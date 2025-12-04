@@ -379,8 +379,10 @@ function App() {
       if (response.ok) {
         const data = await response.json();
         console.log('[DEBUG] N8N response:', data);
-        if (data.documents && Array.isArray(data.documents)) {
-          const mappedDocs = data.documents.map(doc => ({
+        // N8N returns an array with the response object inside
+        const result = Array.isArray(data) ? data[0] : data;
+        if (result.documents && Array.isArray(result.documents)) {
+          const mappedDocs = result.documents.map(doc => ({
             id: doc.id, name: doc.name, size: 'N/A', status: 'ready',
             driveFileId: doc.id, addedToKnowledge: doc.type === 'knowledge', source: doc.source || 'upload'
           }));
