@@ -20,6 +20,7 @@ const CONFIG = {
   DOCS_REGISTRY_URL: process.env.REACT_APP_DOCS_REGISTRY_URL,
   FEEDBACK_WEBHOOK_URL: process.env.REACT_APP_FEEDBACK_WEBHOOK_URL,
   WEB_SEARCH_WEBHOOK_URL: process.env.REACT_APP_WEB_SEARCH_WEBHOOK_URL,
+  CHAT_HISTORY_WEBHOOK_URL: process.env.REACT_APP_CHAT_HISTORY_WEBHOOK_URL,
   REQUEST_COOLDOWN: parseInt(process.env.REACT_APP_REQUEST_COOLDOWN || '180000', 10)
 };
 
@@ -314,6 +315,11 @@ function App() {
   const [chatMode, setChatMode] = useState(() => localStorage.getItem('dr_gini_chat_mode') || 'research');
   const [selectedDocuments, setSelectedDocuments] = useState(new Set());
 
+  // ============ CHAT HISTORY ============
+  const [conversations, setConversations] = useState([]);
+  const [currentConversationId, setCurrentConversationId] = useState(null);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+
   // ============ AUTHENTICATION ============
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -442,6 +448,23 @@ function App() {
     });
   }, [chatMode]);
 
+  // Fetch conversations when user logs in
+  useEffect(() => {
+    if (user && !authLoading) {
+      fetchConversations();
+    }
+  }, [user, authLoading]);
+
+  // Auto-save conversation after messages change
+  useEffect(() => {
+    if (messages.length > 1 && user) {
+      const timeoutId = setTimeout(() => {
+        saveConversation();
+      }, 2000); // Debounce: save 2 seconds after last message
+      return () => clearTimeout(timeoutId);
+    }
+  }, [messages, user]);
+
   // Document selection handlers
   const toggleDocumentSelection = (docId) => {
     setSelectedDocuments(prev => {
@@ -493,6 +516,114 @@ function App() {
   };
 
   const handleDownloadWebDoc = (result) => { if (result.pdfUrl || result.url) window.open(result.pdfUrl || result.url, '_blank'); };
+
+  // ============ CHAT HISTORY FUNCTIONS ============
+  const fetchConversations = async () => {
+    setIsLoadingHistory(true);
+    try {
+      const response = await fetch(CONFIG.CHAT_HISTORY_WEBHOOK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'list',
+          userId: getAuthenticatedUserId(),
+          timestamp: new Date().toISOString()
+        })
+      });
+      if (response.ok) {
+        const data = await response.json();
+        const result = Array.isArray(data) ? data[0] : data;
+        if (result.conversations && Array.isArray(result.conversations)) {
+          setConversations(result.conversations);
+        }
+      }
+    } catch (e) {
+      logger.error('Failed to fetch conversations', e);
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  };
+
+  const saveConversation = async () => {
+    if (messages.length <= 1) return; // Don't save if only welcome message
+
+    try {
+      const conversationTitle = messages.find(m => m.type === 'user')?.content.substring(0, 50) || 'New Conversation';
+      const response = await fetch(CONFIG.CHAT_HISTORY_WEBHOOK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'save',
+          userId: getAuthenticatedUserId(),
+          conversationId: currentConversationId || `conv_${Date.now()}`,
+          title: conversationTitle,
+          messages: messages.filter(m => !m.isWelcome), // Don't save welcome message
+          chatMode: chatMode,
+          timestamp: new Date().toISOString()
+        })
+      });
+      if (response.ok) {
+        const data = await response.json();
+        const result = Array.isArray(data) ? data[0] : data;
+        if (result.conversationId && !currentConversationId) {
+          setCurrentConversationId(result.conversationId);
+        }
+        logger.info('Conversation saved');
+      }
+    } catch (e) {
+      logger.error('Failed to save conversation', e);
+    }
+  };
+
+  const loadConversation = async (conversationId) => {
+    try {
+      const response = await fetch(CONFIG.CHAT_HISTORY_WEBHOOK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'load',
+          userId: getAuthenticatedUserId(),
+          conversationId: conversationId,
+          timestamp: new Date().toISOString()
+        })
+      });
+      if (response.ok) {
+        const data = await response.json();
+        const result = Array.isArray(data) ? data[0] : data;
+        if (result.messages && Array.isArray(result.messages)) {
+          // Add welcome message at the beginning
+          const welcomeMsg = messages.find(m => m.isWelcome);
+          setMessages([welcomeMsg, ...result.messages]);
+          setCurrentConversationId(conversationId);
+          if (result.chatMode) {
+            setChatMode(result.chatMode);
+          }
+          logger.info('Conversation loaded');
+        }
+      }
+    } catch (e) {
+      logger.error('Failed to load conversation', e);
+    }
+  };
+
+  const deleteConversation = async (conversationId) => {
+    try {
+      await fetch(CONFIG.CHAT_HISTORY_WEBHOOK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'delete',
+          userId: getAuthenticatedUserId(),
+          conversationId: conversationId,
+          timestamp: new Date().toISOString()
+        })
+      });
+      setConversations(prev => prev.filter(c => c.id !== conversationId));
+      logger.info('Conversation deleted');
+    } catch (e) {
+      logger.error('Failed to delete conversation', e);
+    }
+  };
 
   const handleFileUpload = async (files, addToKnowledge) => {
     setIsUploading(true);
@@ -889,7 +1020,7 @@ function App() {
         </div>
 
         <div className="flex border-b border-slate-100 px-3">
-          {[{ id: 'chat', icon: MessageSquare, label: 'Chat' }, { id: 'docs', icon: FolderOpen, label: 'My Docs' }, { id: 'saved', icon: Bookmark, label: 'Saved' }].map(tab => (
+          {[{ id: 'chat', icon: MessageSquare, label: 'Chat' }, { id: 'history', icon: Clock, label: 'History' }, { id: 'docs', icon: FolderOpen, label: 'My Docs' }, { id: 'saved', icon: Bookmark, label: 'Saved' }].map(tab => (
             <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`flex-1 flex items-center justify-center gap-1.5 py-3 text-sm font-medium border-b-2 ${activeTab === tab.id ? 'border-blue-500 text-blue-600' : 'border-transparent text-slate-500'}`}>
               <tab.icon className="w-4 h-4" /><span>{tab.label}</span>
               {tab.id === 'docs' && documents.length > 0 && <span className="ml-1 px-1.5 py-0.5 text-xs bg-blue-100 text-blue-600 rounded-full">{documents.length}</span>}
@@ -945,6 +1076,43 @@ function App() {
                   <p className="text-xs text-slate-500 mt-2 line-clamp-2">{a.snippet}</p>
                 </div>
               ))}
+            </div>
+          )}
+          {activeTab === 'history' && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-medium text-slate-500">CHAT HISTORY</span>
+                <button onClick={fetchConversations} disabled={isLoadingHistory} className="p-1 hover:bg-slate-100 rounded"><RefreshCw className={`w-3 h-3 text-slate-400 ${isLoadingHistory ? 'animate-spin' : ''}`} /></button>
+              </div>
+              {isLoadingHistory ? (
+                <div className="text-center py-8"><Loader2 className="w-6 h-6 text-slate-300 mx-auto animate-spin" /></div>
+              ) : conversations.length === 0 ? (
+                <div className="text-center py-8">
+                  <Clock className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+                  <p className="text-sm text-slate-400">No conversation history yet</p>
+                </div>
+              ) : (
+                conversations.map(conv => (
+                  <div key={conv.id} className="p-3 bg-slate-50 rounded-xl hover:bg-slate-100 group">
+                    <div className="flex items-start gap-2">
+                      <button
+                        onClick={() => loadConversation(conv.id)}
+                        className="flex-1 text-left"
+                      >
+                        <p className="text-sm font-medium text-slate-700 truncate">{conv.title || 'Untitled Conversation'}</p>
+                        <p className="text-xs text-slate-400 mt-0.5">{new Date(conv.timestamp).toLocaleDateString()}</p>
+                        <p className="text-xs text-slate-500 mt-1">{conv.messageCount || 0} messages</p>
+                      </button>
+                      <button
+                        onClick={() => deleteConversation(conv.id)}
+                        className="p-1 hover:bg-red-100 rounded opacity-0 group-hover:opacity-100"
+                      >
+                        <Trash2 className="w-4 h-4 text-red-400" />
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           )}
           {activeTab === 'chat' && (
