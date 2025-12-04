@@ -368,6 +368,7 @@ function App() {
 
   // Fetch user documents on load
   const fetchUserDocuments = useCallback(async () => {
+    console.log('[DEBUG] fetchUserDocuments called');
     setIsLoadingDocs(true);
     try {
       const response = await fetch(CONFIG.DOCS_REGISTRY_URL, {
@@ -377,14 +378,24 @@ function App() {
       });
       if (response.ok) {
         const data = await response.json();
+        console.log('[DEBUG] N8N response:', data);
         if (data.documents && Array.isArray(data.documents)) {
-          setDocuments(data.documents.map(doc => ({
+          const mappedDocs = data.documents.map(doc => ({
             id: doc.id, name: doc.name, size: 'N/A', status: 'ready',
             driveFileId: doc.id, addedToKnowledge: doc.type === 'knowledge', source: doc.source || 'upload'
-          })));
+          }));
+          console.log('[DEBUG] Mapped documents:', mappedDocs);
+          setDocuments(mappedDocs);
+        } else {
+          console.log('[DEBUG] No documents in response or not an array');
         }
+      } else {
+        console.log('[DEBUG] Response not OK:', response.status);
       }
-    } catch (e) { logger.error('Failed to load documents', e); }
+    } catch (e) {
+      console.error('[DEBUG] Error fetching documents:', e);
+      logger.error('Failed to load documents', e);
+    }
     finally { setIsLoadingDocs(false); }
   }, [user]); // Include user so function updates when user logs in
 
