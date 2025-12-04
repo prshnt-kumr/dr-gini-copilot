@@ -885,7 +885,6 @@ function App() {
         </div>
 
         <div className="p-3 space-y-2">
-          <button onClick={() => setMessages([messages[0]])} className="w-full flex items-center gap-2 px-4 py-2.5 bg-slate-900 text-white rounded-xl hover:bg-slate-800"><Plus className="w-4 h-4" /><span className="font-medium">New Research</span></button>
           <button onClick={() => setUploadModalOpen(true)} className="w-full flex items-center gap-2 px-4 py-2.5 border-2 border-dashed border-slate-200 text-slate-600 rounded-xl hover:border-blue-400 hover:text-blue-600"><Upload className="w-4 h-4" /><span className="font-medium">Upload Document</span></button>
         </div>
 
@@ -1005,7 +1004,17 @@ function App() {
           </div>
 
           {/* Right Section */}
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-2">
+            {messages.length > 1 && (
+              <button
+                onClick={() => setMessages([messages[0]])}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-all"
+                title="Clear chat and start fresh"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span>Clear Chat</span>
+              </button>
+            )}
             {cooldownTimeLeft > 0 && <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-50 text-amber-700 rounded-lg text-sm"><Clock className="w-4 h-4" />{formatTimeLeft(cooldownTimeLeft)}</div>}
           </div>
         </div>
