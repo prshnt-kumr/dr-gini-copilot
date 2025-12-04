@@ -864,7 +864,6 @@ function App() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-slate-700 truncate">{d.name}</p>
-                          <p className="text-xs text-slate-400">{d.size}</p>
                           <div className="flex items-center gap-2 mt-1">
                             {d.source === 'web' && <span className="inline-flex items-center gap-1 text-xs text-blue-600"><Globe className="w-3 h-3" />Web</span>}
                             {d.addedToKnowledge ? <span className="inline-flex items-center gap-1 text-xs text-purple-600"><Database className="w-3 h-3" />Knowledge</span> : <span className="inline-flex items-center gap-1 text-xs text-amber-600"><Eye className="w-3 h-3" />Explore</span>}
