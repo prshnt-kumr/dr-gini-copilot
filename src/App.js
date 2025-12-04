@@ -448,23 +448,6 @@ function App() {
     });
   }, [chatMode]);
 
-  // Fetch conversations when user logs in
-  useEffect(() => {
-    if (user && !authLoading) {
-      fetchConversations();
-    }
-  }, [user, authLoading, fetchConversations]);
-
-  // Auto-save conversation after messages change
-  useEffect(() => {
-    if (messages.length > 1 && user) {
-      const timeoutId = setTimeout(() => {
-        saveConversation();
-      }, 2000); // Debounce: save 2 seconds after last message
-      return () => clearTimeout(timeoutId);
-    }
-  }, [messages, user, saveConversation]);
-
   // Document selection handlers
   const toggleDocumentSelection = (docId) => {
     setSelectedDocuments(prev => {
@@ -518,6 +501,7 @@ function App() {
   const handleDownloadWebDoc = (result) => { if (result.pdfUrl || result.url) window.open(result.pdfUrl || result.url, '_blank'); };
 
   // ============ CHAT HISTORY FUNCTIONS ============
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const fetchConversations = useCallback(async () => {
     setIsLoadingHistory(true);
     try {
@@ -544,6 +528,7 @@ function App() {
     }
   }, []);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const saveConversation = useCallback(async () => {
     if (messages.length <= 1) return; // Don't save if only welcome message
 
@@ -624,6 +609,23 @@ function App() {
       logger.error('Failed to delete conversation', e);
     }
   };
+
+  // Fetch conversations when user logs in
+  useEffect(() => {
+    if (user && !authLoading) {
+      fetchConversations();
+    }
+  }, [user, authLoading, fetchConversations]);
+
+  // Auto-save conversation after messages change
+  useEffect(() => {
+    if (messages.length > 1 && user) {
+      const timeoutId = setTimeout(() => {
+        saveConversation();
+      }, 2000); // Debounce: save 2 seconds after last message
+      return () => clearTimeout(timeoutId);
+    }
+  }, [messages, user, saveConversation]);
 
   const handleFileUpload = async (files, addToKnowledge) => {
     setIsUploading(true);
