@@ -19,6 +19,7 @@ const CONFIG = {
   WEB_DOC_WEBHOOK_URL: process.env.REACT_APP_WEB_DOC_WEBHOOK_URL,
   DOCS_REGISTRY_URL: process.env.REACT_APP_DOCS_REGISTRY_URL,
   FEEDBACK_WEBHOOK_URL: process.env.REACT_APP_FEEDBACK_WEBHOOK_URL,
+  WEB_SEARCH_WEBHOOK_URL: process.env.REACT_APP_WEB_SEARCH_WEBHOOK_URL,
   REQUEST_COOLDOWN: parseInt(process.env.REACT_APP_REQUEST_COOLDOWN || '180000', 10)
 };
 
@@ -308,6 +309,10 @@ function App() {
   const [webSearchEnabled, setWebSearchEnabled] = useState(false);
   const [isLoadingDocs, setIsLoadingDocs] = useState(false);
 
+  // ============ MODE & DOCUMENT SELECTION ============
+  const [chatMode, setChatMode] = useState(() => localStorage.getItem('dr_gini_chat_mode') || 'research');
+  const [selectedDocuments, setSelectedDocuments] = useState(new Set());
+
   // ============ AUTHENTICATION ============
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -417,6 +422,22 @@ function App() {
       return () => clearTimeout(t);
     }
   }, [cooldownTimeLeft]);
+  useEffect(() => {
+    localStorage.setItem('dr_gini_chat_mode', chatMode);
+  }, [chatMode]);
+
+  // Document selection handlers
+  const toggleDocumentSelection = (docId) => {
+    setSelectedDocuments(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(docId)) {
+        newSet.delete(docId);
+      } else {
+        newSet.add(docId);
+      }
+      return newSet;
+    });
+  };
 
   // Document actions
   const deleteDocument = async (docId, driveFileId) => {
@@ -547,7 +568,19 @@ function App() {
     setIsLoading(true);
     setLastRequestTime(Date.now());
 
-    const msgData = { message: currentMsg, sessionId: getSessionId(), userId: getAuthenticatedUserId(), messageId: `msg_${Date.now()}`, timestamp: new Date().toISOString(), useWebSearch: webSearchEnabled, userDocuments: userDocs };
+    // Prepare message data with selected documents for research mode
+    const selectedDocs = chatMode === 'research' ? Array.from(selectedDocuments) : [];
+    const msgData = {
+      message: currentMsg,
+      sessionId: getSessionId(),
+      userId: getAuthenticatedUserId(),
+      messageId: `msg_${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      useWebSearch: webSearchEnabled,
+      userDocuments: userDocs,
+      chatMode: chatMode,
+      selectedDocuments: selectedDocs
+    };
 
     // Show initial processing message
     const processingMessageId = Date.now() + 1;
@@ -582,9 +615,10 @@ function App() {
       let textResult = { html: '', usedWebSearch: false, webResults: null };
 
       // STEP 1: Get text response FIRST and wait for completion
-      logger.info('Fetching text response');
+      const webhookUrl = chatMode === 'web-search' ? CONFIG.WEB_SEARCH_WEBHOOK_URL : CONFIG.TEXT_WEBHOOK_URL;
+      logger.info(`Fetching ${chatMode} response from ${webhookUrl}`);
       try {
-        const textRes = await fetch(CONFIG.TEXT_WEBHOOK_URL, {
+        const textRes = await fetch(webhookUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(msgData)
@@ -860,6 +894,15 @@ function App() {
                   : documents.map(d => (
                     <div key={d.id} className="p-3 bg-slate-50 rounded-xl hover:bg-slate-100 group">
                       <div className="flex items-start gap-3">
+                        {/* Checkbox for document selection */}
+                        <input
+                          type="checkbox"
+                          checked={selectedDocuments.has(d.id)}
+                          onChange={() => toggleDocumentSelection(d.id)}
+                          disabled={d.status !== 'ready'}
+                          className="mt-2 w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500 disabled:opacity-30 cursor-pointer"
+                          title="Select for chat"
+                        />
                         <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${d.status === 'ready' ? 'bg-green-100' : d.status === 'error' ? 'bg-red-100' : 'bg-blue-100'}`}>
                           {d.status === 'uploading' && <Loader2 className="w-4 h-4 text-blue-600 animate-spin" />}
                           {d.status === 'ready' && <CheckCircle className="w-4 h-4 text-green-600" />}
@@ -913,10 +956,37 @@ function App() {
               <div className={`w-2 h-2 rounded-full ${isLoading ? 'bg-amber-400 animate-pulse' : 'bg-green-400'}`} />
               <span className="text-sm text-slate-600">{isLoading ? 'Processing...' : 'Ready'}</span>
             </div>
-            {documents.filter(d => d.status === 'ready').length > 0 && (
+            {documents.filter(d => d.status === 'ready').length > 0 && chatMode === 'research' && (
               <div className="flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-600 rounded-lg text-xs"><FileText className="w-3 h-3" />{documents.filter(d => d.status === 'ready').length} docs</div>
             )}
           </div>
+
+          {/* Mode Toggle */}
+          <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1">
+            <button
+              onClick={() => setChatMode('research')}
+              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
+                chatMode === 'research'
+                  ? 'bg-white text-slate-900 shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Database className="w-4 h-4 inline mr-1" />
+              Research
+            </button>
+            <button
+              onClick={() => setChatMode('web-search')}
+              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
+                chatMode === 'web-search'
+                  ? 'bg-white text-slate-900 shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Globe className="w-4 h-4 inline mr-1" />
+              Web Search
+            </button>
+          </div>
+
           {cooldownTimeLeft > 0 && <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-50 text-amber-700 rounded-lg text-sm"><Clock className="w-4 h-4" />{formatTimeLeft(cooldownTimeLeft)}</div>}
         </div>
 
