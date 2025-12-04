@@ -291,7 +291,8 @@ function App() {
   const [messages, setMessages] = useState([{
     id: 1, type: 'bot',
     content: "Hello! I'm Dr. Gini, your AI research copilot. I can analyze documents, visualize molecules, and search for papers. Your uploaded documents are saved and will be available in future sessions.",
-    timestamp: new Date()
+    timestamp: new Date(),
+    isWelcome: true
   }]);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -424,6 +425,21 @@ function App() {
   }, [cooldownTimeLeft]);
   useEffect(() => {
     localStorage.setItem('dr_gini_chat_mode', chatMode);
+  }, [chatMode]);
+
+  // Update welcome message based on mode
+  useEffect(() => {
+    setMessages(prev => {
+      const welcomeMsg = prev.find(m => m.isWelcome);
+      if (welcomeMsg) {
+        const newContent = chatMode === 'web-search'
+          ? "I am Dr. Gini, how can I help you today?"
+          : "Hello! I'm Dr. Gini, your AI research copilot. I can analyze documents, visualize molecules, and search for papers. Your uploaded documents are saved and will be available in future sessions.";
+
+        return prev.map(m => m.isWelcome ? { ...m, content: newContent } : m);
+      }
+      return prev;
+    });
   }, [chatMode]);
 
   // Document selection handlers
@@ -949,7 +965,8 @@ function App() {
 
       {/* Main */}
       <div className="flex-1 flex flex-col min-w-0">
-        <div className="h-14 border-b border-slate-200 bg-white/80 backdrop-blur-sm flex items-center justify-between px-4">
+        <div className="h-14 border-b border-slate-200 bg-white/80 backdrop-blur-sm flex items-center px-4 relative">
+          {/* Left Section */}
           <div className="flex items-center gap-3">
             <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 hover:bg-slate-100 rounded-lg">{sidebarOpen ? <X className="w-5 h-5 text-slate-500" /> : <Menu className="w-5 h-5 text-slate-500" />}</button>
             <div className="flex items-center gap-2">
@@ -961,33 +978,36 @@ function App() {
             )}
           </div>
 
-          {/* Mode Toggle */}
-          <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1">
+          {/* Center - Mode Toggle */}
+          <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-0.5 bg-gradient-to-r from-slate-50 to-slate-100 rounded-xl p-1 shadow-sm border border-slate-200">
             <button
               onClick={() => setChatMode('research')}
-              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${
                 chatMode === 'research'
-                  ? 'bg-white text-slate-900 shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900'
+                  ? 'bg-white text-blue-600 shadow-md scale-105'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
               }`}
             >
-              <Database className="w-4 h-4 inline mr-1" />
-              Research
+              <Database className="w-4 h-4" />
+              <span>Research</span>
             </button>
             <button
               onClick={() => setChatMode('web-search')}
-              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${
                 chatMode === 'web-search'
-                  ? 'bg-white text-slate-900 shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900'
+                  ? 'bg-white text-blue-600 shadow-md scale-105'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
               }`}
             >
-              <Globe className="w-4 h-4 inline mr-1" />
-              Web Search
+              <Globe className="w-4 h-4" />
+              <span>Web Search</span>
             </button>
           </div>
 
-          {cooldownTimeLeft > 0 && <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-50 text-amber-700 rounded-lg text-sm"><Clock className="w-4 h-4" />{formatTimeLeft(cooldownTimeLeft)}</div>}
+          {/* Right Section */}
+          <div className="ml-auto">
+            {cooldownTimeLeft > 0 && <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-50 text-amber-700 rounded-lg text-sm"><Clock className="w-4 h-4" />{formatTimeLeft(cooldownTimeLeft)}</div>}
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto">
