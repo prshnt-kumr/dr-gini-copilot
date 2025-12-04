@@ -379,8 +379,8 @@ function App() {
         const data = await response.json();
         if (data.documents && Array.isArray(data.documents)) {
           setDocuments(data.documents.map(doc => ({
-            id: doc.id, name: doc.file_name, size: doc.file_size || 'N/A', status: 'ready',
-            driveFileId: doc.drive_id, addedToKnowledge: doc.type === 'knowledge', source: doc.source || 'upload'
+            id: doc.id, name: doc.name, size: 'N/A', status: 'ready',
+            driveFileId: doc.id, addedToKnowledge: doc.type === 'knowledge', source: doc.source || 'upload'
           })));
         }
       }
