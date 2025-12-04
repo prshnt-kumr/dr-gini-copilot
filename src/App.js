@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { 
-  Send, FileText, Upload, Bookmark, Plus, 
+import {
+  Send, FileText, Upload, Bookmark,
   Sparkles, Clock, Trash2, Download, Copy, Check, Menu, X,
   FolderOpen, MessageSquare, Beaker, Atom,
   Star, ThumbsUp, ThumbsDown, Loader2, User,
@@ -453,7 +453,7 @@ function App() {
     if (user && !authLoading) {
       fetchConversations();
     }
-  }, [user, authLoading]);
+  }, [user, authLoading, fetchConversations]);
 
   // Auto-save conversation after messages change
   useEffect(() => {
@@ -463,7 +463,7 @@ function App() {
       }, 2000); // Debounce: save 2 seconds after last message
       return () => clearTimeout(timeoutId);
     }
-  }, [messages, user]);
+  }, [messages, user, saveConversation]);
 
   // Document selection handlers
   const toggleDocumentSelection = (docId) => {
@@ -518,7 +518,7 @@ function App() {
   const handleDownloadWebDoc = (result) => { if (result.pdfUrl || result.url) window.open(result.pdfUrl || result.url, '_blank'); };
 
   // ============ CHAT HISTORY FUNCTIONS ============
-  const fetchConversations = async () => {
+  const fetchConversations = useCallback(async () => {
     setIsLoadingHistory(true);
     try {
       const response = await fetch(CONFIG.CHAT_HISTORY_WEBHOOK_URL, {
@@ -542,9 +542,9 @@ function App() {
     } finally {
       setIsLoadingHistory(false);
     }
-  };
+  }, []);
 
-  const saveConversation = async () => {
+  const saveConversation = useCallback(async () => {
     if (messages.length <= 1) return; // Don't save if only welcome message
 
     try {
@@ -573,7 +573,7 @@ function App() {
     } catch (e) {
       logger.error('Failed to save conversation', e);
     }
-  };
+  }, [messages, chatMode, currentConversationId]);
 
   const loadConversation = async (conversationId) => {
     try {
