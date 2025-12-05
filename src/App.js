@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
-  Send, FileText, Upload, Bookmark,
+  Send, FileText, Upload,
   Sparkles, Clock, Download, Copy, Check, Menu, X, ChevronLeft,
   MessageSquare, Beaker, Atom,
   Star, ThumbsUp, ThumbsDown, Loader2, User,
@@ -565,7 +565,6 @@ function App() {
   const [userFeedback, setUserFeedback] = useState({});
   const [lastRequestTime, setLastRequestTime] = useState(0);
   const [cooldownTimeLeft, setCooldownTimeLeft] = useState(0);
-  const [savedAnalyses, setSavedAnalyses] = useState([]);
   const [documents, setDocuments] = useState([]);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -1004,6 +1003,49 @@ function App() {
       }]);
     } finally {
       setLoadingConversationId(null);
+    }
+  };
+
+  const toggleFavorite = async (conversationId, currentFavoriteStatus) => {
+    try {
+      const actualUserId = user && user.email ? user.email : getUserId();
+      const newFavoriteStatus = !currentFavoriteStatus;
+
+      const payload = {
+        action: 'toggleFavorite',
+        userId: actualUserId,
+        sessionId: getSessionId(),
+        conversationId: conversationId,
+        isFavorite: newFavoriteStatus,
+        timestamp: new Date().toISOString()
+      };
+
+      console.log('[DEBUG] toggleFavorite payload:', payload);
+
+      // Optimistically update UI
+      setConversations(prev => prev.map(conv =>
+        conv.id === conversationId ? { ...conv, isFavorite: newFavoriteStatus } : conv
+      ));
+
+      const response = await fetch(CONFIG.CHAT_HISTORY_WEBHOOK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        // Revert on error
+        setConversations(prev => prev.map(conv =>
+          conv.id === conversationId ? { ...conv, isFavorite: currentFavoriteStatus } : conv
+        ));
+        logger.error('Failed to toggle favorite');
+      }
+    } catch (e) {
+      logger.error('Failed to toggle favorite', e);
+      // Revert on error
+      setConversations(prev => prev.map(conv =>
+        conv.id === conversationId ? { ...conv, isFavorite: currentFavoriteStatus } : conv
+      ));
     }
   };
 
@@ -1454,7 +1496,6 @@ function App() {
     return <div className="text-sm leading-relaxed" dangerouslySetInnerHTML={{ __html: content }} />;
   };
 
-  const saveAnalysis = (msg) => setSavedAnalyses(p => [{ id: Date.now(), title: `Analysis ${p.length + 1}`, date: 'Just now', snippet: htmlToText(msg.content).substring(0, 80) + '...' }, ...p]);
   const copyToClipboard = (text, id) => { navigator.clipboard.writeText(htmlToText(text)); setCopiedId(id); setTimeout(() => setCopiedId(null), 2000); };
   const downloadChat = () => {
     const content = messages.filter(m => !m.isError).map(m => `[${formatTime(m.timestamp)}] ${m.type === 'user' ? 'You' : 'Dr. Gini'}: ${htmlToText(m.content)}`).join('\n\n');
@@ -1524,40 +1565,10 @@ function App() {
           </div>
         </div>
 
-        {/* Colorful Stacked Sections - No Tabs! */}
-        <div className="flex-1 overflow-y-auto p-3 space-y-4">
+        {/* Chat History - Clean & Beautiful */}
+        <div className="flex-1 overflow-y-auto p-4">
 
-          {/* Current Session - Blue Gradient */}
-          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-4 shadow-sm">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
-                <Sparkles className="w-4 h-4 text-white" />
-              </div>
-              <h3 className="text-sm font-semibold text-blue-900">Current Session</h3>
-            </div>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-blue-700 font-medium">Messages</span>
-                <span className="px-2 py-0.5 bg-blue-200 text-blue-800 rounded-full font-semibold">{messages.length}</span>
-              </div>
-              {documentChatActive && (
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-blue-700 font-medium">Active Docs</span>
-                  <span className="px-2 py-0.5 bg-purple-200 text-purple-800 rounded-full font-semibold">{chatDocuments.size}</span>
-                </div>
-              )}
-              {documents.filter(d => d.addedToKnowledge).length > 0 && (
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-blue-700 font-medium">Knowledge DB</span>
-                  <span className="px-2 py-0.5 bg-emerald-200 text-emerald-800 rounded-full font-semibold" title="Documents in vector database">
-                    {documents.filter(d => d.addedToKnowledge).length}
-                  </span>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Chat History - Purple Gradient */}
+          {/* Chat History */}
           <div className="bg-gradient-to-br from-purple-50 to-pink-50 border border-purple-200 rounded-xl p-4 shadow-sm">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
@@ -1586,53 +1597,95 @@ function App() {
                 <p className="text-xs text-purple-600">No history yet</p>
               </div>
             ) : (() => {
-              const grouped = groupConversationsByDate(conversations);
-              const renderConversation = (conv) => {
+              const favorites = conversations.filter(c => c.isFavorite);
+              const regular = conversations.filter(c => !c.isFavorite);
+              const grouped = groupConversationsByDate(regular);
+
+              const renderConversation = (conv, showDate = true) => {
                 const isActive = currentConversationId === conv.id;
                 const isLoading = loadingConversationId === conv.id;
+                const isFavorite = conv.isFavorite;
 
                 return (
-                  <button
+                  <div
                     key={conv.id}
-                    onClick={() => loadConversation(conv.id)}
-                    disabled={isLoading}
-                    className={`w-full text-left p-2.5 rounded-lg border transition-colors group relative ${
+                    className={`relative p-3 rounded-lg border transition-all group ${
                       isActive
                         ? 'bg-purple-100 border-purple-300 shadow-sm'
-                        : 'bg-white hover:bg-purple-50 border-purple-100'
-                    } ${isLoading ? 'opacity-50 cursor-wait' : ''}`}
+                        : 'bg-white hover:bg-purple-50 border-purple-100 hover:border-purple-200'
+                    } ${isLoading ? 'opacity-50' : ''}`}
                   >
                     {isLoading && (
-                      <div className="absolute inset-0 flex items-center justify-center bg-white/80 rounded-lg">
+                      <div className="absolute inset-0 flex items-center justify-center bg-white/80 rounded-lg z-10">
                         <Loader2 className="w-4 h-4 text-purple-600 animate-spin" />
                       </div>
                     )}
-                    <div className="flex items-start justify-between">
-                      <p className="text-xs font-medium text-purple-900 truncate flex-1 pr-2">
-                        {conv.title || 'Untitled'}
-                      </p>
-                      {isActive && (
-                        <span className="px-1.5 py-0.5 bg-purple-600 text-white text-xs rounded font-semibold">
-                          Active
+
+                    {/* Star Button - Top Right */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleFavorite(conv.id, isFavorite);
+                      }}
+                      className="absolute top-2 right-2 p-1.5 rounded-lg hover:bg-purple-200 transition-colors z-20"
+                      title={isFavorite ? "Remove from favorites" : "Add to favorites"}
+                    >
+                      <Star className={`w-4 h-4 ${isFavorite ? 'fill-amber-400 text-amber-400' : 'text-purple-300 hover:text-amber-400'}`} />
+                    </button>
+
+                    {/* Clickable Area */}
+                    <button
+                      onClick={() => loadConversation(conv.id)}
+                      disabled={isLoading}
+                      className="w-full text-left"
+                    >
+                      <div className="flex items-start justify-between pr-8">
+                        <p className="text-sm font-medium text-purple-900 truncate flex-1">
+                          {conv.title || 'Untitled'}
+                        </p>
+                        {isActive && (
+                          <span className="ml-2 px-2 py-0.5 bg-purple-600 text-white text-xs rounded-full font-semibold">
+                            Active
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3 mt-2 text-xs text-purple-600">
+                        <span className="flex items-center gap-1">
+                          <MessageCircle className="w-3 h-3" />
+                          {conv.messageCount || 0} msgs
                         </span>
-                      )}
-                    </div>
-                    <div className="flex items-center justify-between mt-1">
-                      <p className="text-xs text-purple-600">{conv.messageCount || 0} msgs</p>
-                      <p className="text-xs text-purple-500">{formatTime(new Date(conv.timestamp))}</p>
-                    </div>
-                  </button>
+                        {showDate && (
+                          <span className="text-purple-500">
+                            {formatTime(new Date(conv.timestamp))}
+                          </span>
+                        )}
+                      </div>
+                    </button>
+                  </div>
                 );
               };
 
               return (
-                <div className="space-y-3 max-h-72 overflow-y-auto">
+                <div className="space-y-4 max-h-[calc(100vh-280px)] overflow-y-auto pr-1">
+                  {/* Favorites */}
+                  {favorites.length > 0 && (
+                    <div>
+                      <div className="flex items-center gap-2 mb-2 px-1">
+                        <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
+                        <p className="text-xs font-bold text-purple-800 uppercase tracking-wide">Favorites</p>
+                      </div>
+                      <div className="space-y-2">
+                        {favorites.map(conv => renderConversation(conv, true))}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Today */}
                   {grouped.today.length > 0 && (
                     <div>
-                      <p className="text-xs font-semibold text-purple-700 mb-1.5 px-1">Today</p>
-                      <div className="space-y-1.5">
-                        {grouped.today.map(renderConversation)}
+                      <p className="text-xs font-bold text-purple-700 mb-2 px-1 uppercase tracking-wide">Today</p>
+                      <div className="space-y-2">
+                        {grouped.today.map(conv => renderConversation(conv, true))}
                       </div>
                     </div>
                   )}
@@ -1640,9 +1693,9 @@ function App() {
                   {/* Yesterday */}
                   {grouped.yesterday.length > 0 && (
                     <div>
-                      <p className="text-xs font-semibold text-purple-700 mb-1.5 px-1">Yesterday</p>
-                      <div className="space-y-1.5">
-                        {grouped.yesterday.map(renderConversation)}
+                      <p className="text-xs font-bold text-purple-700 mb-2 px-1 uppercase tracking-wide">Yesterday</p>
+                      <div className="space-y-2">
+                        {grouped.yesterday.map(conv => renderConversation(conv, true))}
                       </div>
                     </div>
                   )}
@@ -1650,44 +1703,15 @@ function App() {
                   {/* Last 7 Days */}
                   {grouped.last7days.length > 0 && (
                     <div>
-                      <p className="text-xs font-semibold text-purple-700 mb-1.5 px-1">Last 7 Days</p>
-                      <div className="space-y-1.5">
-                        {grouped.last7days.map(renderConversation)}
+                      <p className="text-xs font-bold text-purple-700 mb-2 px-1 uppercase tracking-wide">Last 7 Days</p>
+                      <div className="space-y-2">
+                        {grouped.last7days.map(conv => renderConversation(conv, true))}
                       </div>
                     </div>
                   )}
                 </div>
               );
             })()}
-          </div>
-
-          {/* Saved Analyses - Green Gradient */}
-          <div className="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200 rounded-xl p-4 shadow-sm">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center">
-                <Bookmark className="w-4 h-4 text-white" />
-              </div>
-              <h3 className="text-sm font-semibold text-emerald-900">Saved</h3>
-            </div>
-
-            {savedAnalyses.length === 0 ? (
-              <div className="text-center py-6">
-                <Bookmark className="w-8 h-8 text-emerald-300 mx-auto mb-2" />
-                <p className="text-xs text-emerald-600">No saved items</p>
-              </div>
-            ) : (
-              <div className="space-y-2 max-h-60 overflow-y-auto">
-                {savedAnalyses.slice(0, 5).map(a => (
-                  <div key={a.id} className="p-2.5 bg-white hover:bg-emerald-100 rounded-lg border border-emerald-100 cursor-pointer transition-colors">
-                    <p className="text-xs font-medium text-emerald-900 truncate">{a.title}</p>
-                    <p className="text-xs text-emerald-600 mt-1 line-clamp-2">{a.snippet}</p>
-                  </div>
-                ))}
-                {savedAnalyses.length > 5 && (
-                  <p className="text-xs text-emerald-600 text-center pt-2">+{savedAnalyses.length - 5} more</p>
-                )}
-              </div>
-            )}
           </div>
 
         </div>
@@ -1837,7 +1861,6 @@ function App() {
                       <button onClick={() => handleQuickFeedback(msg.messageId, 'up')} className={`p-1.5 rounded-lg ${userFeedback[msg.messageId]?.thumbs === 'up' ? 'bg-green-100 text-green-600' : 'text-slate-400 hover:bg-slate-100'}`}><ThumbsUp className="w-4 h-4" /></button>
                       <button onClick={() => handleQuickFeedback(msg.messageId, 'down')} className={`p-1.5 rounded-lg ${userFeedback[msg.messageId]?.thumbs === 'down' ? 'bg-red-100 text-red-600' : 'text-slate-400 hover:bg-slate-100'}`}><ThumbsDown className="w-4 h-4" /></button>
                       <button onClick={() => copyToClipboard(msg.content, msg.id)} className="p-1.5 text-slate-400 hover:bg-slate-100 rounded-lg">{copiedId === msg.id ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}</button>
-                      <button onClick={() => saveAnalysis(msg)} className="p-1.5 text-slate-400 hover:bg-slate-100 rounded-lg"><Bookmark className="w-4 h-4" /></button>
                       <button onClick={() => setFeedbackModal({ open: true, messageId: msg.messageId })} className="p-1.5 text-slate-400 hover:bg-slate-100 rounded-lg"><MessageSquare className="w-4 h-4" /></button>
                       <span className="text-xs text-slate-400 ml-2">{formatTime(msg.timestamp)}</span>
                     </div>
