@@ -820,9 +820,25 @@ function App() {
       });
       if (response.ok) {
         const data = await response.json();
+        console.log('[DEBUG] Raw N8N response:', data);
+
         const result = Array.isArray(data) ? data[0] : data;
         if (result.conversations && Array.isArray(result.conversations)) {
-          setConversations(result.conversations);
+          // Map N8N response properties to UI expected properties
+          const mappedConversations = result.conversations.map(conv => ({
+            id: conv.conversationId,           // conversationId → id
+            conversationId: conv.conversationId, // Keep original too
+            title: conv.title,
+            messageCount: parseInt(conv.messageCount) || 0, // Convert string to number
+            chatMode: conv.chatMode,
+            timestamp: conv.updatedAt || conv.timestamp, // updatedAt → timestamp
+            updatedAt: conv.updatedAt           // Keep original too
+          }));
+
+          console.log('[DEBUG] Mapped conversations:', mappedConversations);
+          setConversations(mappedConversations);
+        } else {
+          console.log('[DEBUG] No conversations found in response');
         }
       }
     } catch (e) {
