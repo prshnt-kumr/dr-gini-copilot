@@ -564,6 +564,9 @@ function App() {
 
       // Check if user is already logged in
       const currentUser = netlifyIdentity.currentUser();
+      console.log('[DEBUG] Netlify Identity currentUser:', currentUser);
+      console.log('[DEBUG] currentUser keys:', currentUser ? Object.keys(currentUser) : 'null');
+      console.log('[DEBUG] currentUser.email:', currentUser?.email);
       if (currentUser) {
         setUser(currentUser);
       }
@@ -571,6 +574,9 @@ function App() {
 
       // Listen for login/logout events
       netlifyIdentity.on('login', (loggedInUser) => {
+        console.log('[DEBUG] User logged in:', loggedInUser);
+        console.log('[DEBUG] loggedInUser keys:', Object.keys(loggedInUser));
+        console.log('[DEBUG] loggedInUser.email:', loggedInUser.email);
         setUser(loggedInUser);
         netlifyIdentity.close();
         // Clear old anonymous session data
@@ -591,10 +597,22 @@ function App() {
 
   // Get authenticated user ID
   const getAuthenticatedUserId = () => {
-    if (user && user.email) {
-      return user.email;
+    // Debug logging to see user object structure
+    console.log('[DEBUG] getAuthenticatedUserId called, user:', user);
+    console.log('[DEBUG] user object keys:', user ? Object.keys(user) : 'null');
+    console.log('[DEBUG] user.email:', user?.email);
+
+    if (user) {
+      // Try multiple ways to get email from Netlify Identity user object
+      const email = user.email || user.user_metadata?.email || user.app_metadata?.email;
+      if (email) {
+        console.log('[DEBUG] Using authenticated email:', email);
+        return email;
+      }
     }
+
     // Fallback to anonymous ID if not authenticated (shouldn't happen with auth required)
+    console.log('[DEBUG] Falling back to anonymous getUserId()');
     return getUserId();
   };
 
@@ -746,12 +764,15 @@ function App() {
   const fetchConversations = useCallback(async () => {
     setIsLoadingHistory(true);
     try {
+      const actualUserId = user && user.email ? user.email : getUserId();
+      console.log('[DEBUG] fetchConversations - using userId:', actualUserId);
+
       const response = await fetch(CONFIG.CHAT_HISTORY_WEBHOOK_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'list',
-          userId: getAuthenticatedUserId(),
+          userId: actualUserId,
           timestamp: new Date().toISOString()
         })
       });
@@ -767,19 +788,22 @@ function App() {
     } finally {
       setIsLoadingHistory(false);
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [user]); // Added user dependency to get latest user state
 
   const saveConversation = useCallback(async () => {
     if (messages.length <= 1) return; // Don't save if only welcome message
 
     try {
+      const actualUserId = user && user.email ? user.email : getUserId();
+      console.log('[DEBUG] saveConversation - using userId:', actualUserId);
+
       const conversationTitle = messages.find(m => m.type === 'user')?.content.substring(0, 50) || 'New Conversation';
       const response = await fetch(CONFIG.CHAT_HISTORY_WEBHOOK_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'save',
-          userId: getAuthenticatedUserId(),
+          userId: actualUserId,
           conversationId: currentConversationId || `conv_${Date.now()}`,
           title: conversationTitle,
           messages: messages.filter(m => !m.isWelcome), // Don't save welcome message
@@ -798,16 +822,19 @@ function App() {
     } catch (e) {
       logger.error('Failed to save conversation', e);
     }
-  }, [messages, chatMode, currentConversationId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [messages, chatMode, currentConversationId, user]); // Added user dependency
 
   const loadConversation = async (conversationId) => {
     try {
+      const actualUserId = user && user.email ? user.email : getUserId();
+      console.log('[DEBUG] loadConversation - using userId:', actualUserId);
+
       const response = await fetch(CONFIG.CHAT_HISTORY_WEBHOOK_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'load',
-          userId: getAuthenticatedUserId(),
+          userId: actualUserId,
           conversationId: conversationId,
           timestamp: new Date().toISOString()
         })
