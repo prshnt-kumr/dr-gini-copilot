@@ -802,16 +802,21 @@ function App() {
     setIsLoadingHistory(true);
     try {
       const actualUserId = user && user.email ? user.email : getUserId();
-      console.log('[DEBUG] fetchConversations - using userId:', actualUserId);
+      const actualSessionId = getSessionId();
+
+      const payload = {
+        action: 'list',
+        userId: actualUserId,
+        sessionId: actualSessionId,
+        timestamp: new Date().toISOString()
+      };
+
+      console.log('[DEBUG] fetchConversations payload:', payload);
 
       const response = await fetch(CONFIG.CHAT_HISTORY_WEBHOOK_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'list',
-          userId: actualUserId,
-          timestamp: new Date().toISOString()
-        })
+        body: JSON.stringify(payload)
       });
       if (response.ok) {
         const data = await response.json();
@@ -832,21 +837,35 @@ function App() {
 
     try {
       const actualUserId = user && user.email ? user.email : getUserId();
-      console.log('[DEBUG] saveConversation - using userId:', actualUserId);
-
+      const actualSessionId = getSessionId();
       const conversationTitle = messages.find(m => m.type === 'user')?.content.substring(0, 50) || 'New Conversation';
+      const convId = currentConversationId || `conv_${Date.now()}`;
+
+      const payload = {
+        action: 'save',
+        userId: actualUserId,
+        sessionId: actualSessionId,
+        conversationId: convId,
+        title: conversationTitle,
+        messages: messages.filter(m => !m.isWelcome), // Don't save welcome message
+        chatMode: chatMode,
+        timestamp: new Date().toISOString()
+      };
+
+      console.log('[DEBUG] saveConversation payload:', {
+        action: payload.action,
+        userId: payload.userId,
+        sessionId: payload.sessionId,
+        conversationId: payload.conversationId,
+        title: payload.title,
+        messageCount: payload.messages.length,
+        chatMode: payload.chatMode
+      });
+
       const response = await fetch(CONFIG.CHAT_HISTORY_WEBHOOK_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'save',
-          userId: actualUserId,
-          conversationId: currentConversationId || `conv_${Date.now()}`,
-          title: conversationTitle,
-          messages: messages.filter(m => !m.isWelcome), // Don't save welcome message
-          chatMode: chatMode,
-          timestamp: new Date().toISOString()
-        })
+        body: JSON.stringify(payload)
       });
       if (response.ok) {
         const data = await response.json();
@@ -865,17 +884,22 @@ function App() {
     setLoadingConversationId(conversationId);
     try {
       const actualUserId = user && user.email ? user.email : getUserId();
-      console.log('[DEBUG] loadConversation - using userId:', actualUserId);
+      const actualSessionId = getSessionId();
+
+      const payload = {
+        action: 'load',
+        userId: actualUserId,
+        sessionId: actualSessionId,
+        conversationId: conversationId,
+        timestamp: new Date().toISOString()
+      };
+
+      console.log('[DEBUG] loadConversation payload:', payload);
 
       const response = await fetch(CONFIG.CHAT_HISTORY_WEBHOOK_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'load',
-          userId: actualUserId,
-          conversationId: conversationId,
-          timestamp: new Date().toISOString()
-        })
+        body: JSON.stringify(payload)
       });
       if (response.ok) {
         const data = await response.json();
