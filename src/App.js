@@ -580,6 +580,7 @@ function App() {
   const [documentChatActive, setDocumentChatActive] = useState(false);
   const [docSelectorOpen, setDocSelectorOpen] = useState(false);
   const [chatDocuments, setChatDocuments] = useState(new Set()); // Docs selected for chat
+  const [autoSendSummary, setAutoSendSummary] = useState(false); // Auto-send summary after doc selection
 
   // ============ CHAT HISTORY ============
   const [conversations, setConversations] = useState([]);
@@ -739,6 +740,17 @@ function App() {
   const handleSelectDocsForChat = (selectedIds) => {
     setChatDocuments(selectedIds);
     setDocumentChatActive(selectedIds.size > 0);
+
+    // If auto-send summary is requested
+    if (autoSendSummary && selectedIds.size > 0) {
+      setInputMessage('Summarize these documents');
+      setAutoSendSummary(false);
+
+      // Auto-send after a brief delay to ensure state is updated
+      setTimeout(() => {
+        sendMessage();
+      }, 100);
+    }
   };
 
   const handleRemoveDocFromChat = (docId) => {
@@ -1451,10 +1463,10 @@ function App() {
   };
 
   const suggestedQueries = [
-    { icon: Beaker, text: 'Show caffeine structure', color: 'text-purple-500' },
-    { icon: Microscope, text: 'Show chromene molecular structure', color: 'text-blue-500' },
-    { icon: GraduationCap, text: 'Search latest chromene research', color: 'text-green-500' },
-    { icon: Lightbulb, text: 'Summarize my uploaded documents', color: 'text-amber-500' },
+    { icon: Beaker, text: 'Show caffeine structure', color: 'text-purple-500', action: 'query' },
+    { icon: Microscope, text: 'Show chromene molecular structure', color: 'text-blue-500', action: 'query' },
+    { icon: Database, text: 'Show protein folding mechanism', color: 'text-green-500', action: 'query' },
+    { icon: Lightbulb, text: 'Summarize my uploaded documents', color: 'text-amber-500', action: 'summarizeDocs' },
   ];
 
   // Show loading screen while checking authentication
@@ -1843,8 +1855,20 @@ function App() {
               <p className="text-xs text-slate-500 mb-3 font-medium">TRY THESE</p>
               <div className="grid grid-cols-2 gap-2">
                 {suggestedQueries.map((q, i) => (
-                  <button key={i} onClick={() => { setInputMessage(q.text); if (q.text.includes('Search')) setWebSearchEnabled(true); }}
-                    className="flex items-center gap-3 p-3 bg-white border border-slate-200 rounded-xl hover:border-blue-300 hover:shadow-sm text-left group">
+                  <button
+                    key={i}
+                    onClick={() => {
+                      if (q.action === 'summarizeDocs') {
+                        // Open doc selector and set flag to auto-send summary
+                        setAutoSendSummary(true);
+                        setDocSelectorOpen(true);
+                      } else {
+                        // Regular query - just set input message
+                        setInputMessage(q.text);
+                      }
+                    }}
+                    className="flex items-center gap-3 p-3 bg-white border border-slate-200 rounded-xl hover:border-blue-300 hover:shadow-sm text-left group"
+                  >
                     <q.icon className={`w-5 h-5 ${q.color}`} />
                     <span className="text-sm text-slate-700 flex-1">{q.text}</span>
                     <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-blue-500 group-hover:translate-x-1 transition-all" />
