@@ -20,9 +20,35 @@ const CONFIG = {
   DOCS_REGISTRY_URL: process.env.REACT_APP_DOCS_REGISTRY_URL,
   FEEDBACK_WEBHOOK_URL: process.env.REACT_APP_FEEDBACK_WEBHOOK_URL,
   WEB_SEARCH_WEBHOOK_URL: process.env.REACT_APP_WEB_SEARCH_WEBHOOK_URL,
+  DOCUMENT_CHAT_WEBHOOK_URL: process.env.REACT_APP_DOCUMENT_CHAT_WEBHOOK_URL,
   CHAT_HISTORY_WEBHOOK_URL: process.env.REACT_APP_CHAT_HISTORY_WEBHOOK_URL,
-  REQUEST_COOLDOWN: parseInt(process.env.REACT_APP_REQUEST_COOLDOWN || '180000', 10)
+  REQUEST_COOLDOWN: parseInt(process.env.REACT_APP_REQUEST_COOLDOWN || '180000', 10),
+  LONG_REQUEST_TIMEOUT: 480000 // 8 minutes for deep search operations
 };
+
+// ============ FUN WAITING MESSAGES ============
+const FUN_WAITING_MESSAGES = [
+  { emoji: '🔬', text: 'Analyzing molecular patterns...' },
+  { emoji: '🧪', text: 'Mixing the perfect research cocktail...' },
+  { emoji: '🔍', text: 'Scanning through scientific databases...' },
+  { emoji: '⚗️', text: 'Brewing your answer...' },
+  { emoji: '🧬', text: 'Unraveling DNA-level details...' },
+  { emoji: '📚', text: 'Speed-reading thousands of papers...' },
+  { emoji: '🤖', text: 'AI neurons are firing up...' },
+  { emoji: '✨', text: 'Sprinkling some scientific magic...' },
+  { emoji: '🎯', text: 'Getting closer to the perfect answer...' },
+  { emoji: '🌟', text: 'Almost there, crafting excellence...' },
+  { emoji: '💡', text: 'Connecting the dots...' },
+  { emoji: '🚀', text: 'Deep diving into research space...' },
+  { emoji: '🎨', text: 'Painting a comprehensive picture...' },
+  { emoji: '⏳', text: 'Good things take time...' },
+  { emoji: '🎭', text: 'The plot thickens! Hold on...' },
+  { emoji: '🏆', text: 'Quality research in progress...' },
+  { emoji: '🎪', text: 'The show must go on...' },
+  { emoji: '🎸', text: 'Tuning the research symphony...' },
+  { emoji: '🍳', text: 'Cooking up something great...' },
+  { emoji: '☕', text: 'Perfect time for a coffee break!' }
+];
 
 // ============ UTILITY FUNCTIONS ============
 const logger = {
@@ -768,16 +794,55 @@ function App() {
       let imageError = null;
       let textResult = { html: '', usedWebSearch: false, webResults: null };
 
-      // STEP 1: Get text response FIRST and wait for completion
-      const webhookUrl = chatMode === 'web-search' ? CONFIG.WEB_SEARCH_WEBHOOK_URL : CONFIG.TEXT_WEBHOOK_URL;
+      // STEP 1: Determine which webhook to use
+      let webhookUrl;
+      if (chatMode === 'web-search') {
+        webhookUrl = CONFIG.WEB_SEARCH_WEBHOOK_URL;
+      } else if (selectedDocs.length > 0) {
+        // If user has selected specific documents, use document chat webhook
+        webhookUrl = CONFIG.DOCUMENT_CHAT_WEBHOOK_URL;
+        logger.info('Using document chat webhook with selected docs', { count: selectedDocs.length });
+      } else {
+        // Default general research webhook
+        webhookUrl = CONFIG.TEXT_WEBHOOK_URL;
+      }
+
       logger.info(`Fetching ${chatMode} response from ${webhookUrl}`);
-      logger.debug('Message data being sent', { messageId: msgData.messageId, mode: chatMode, useWebSearch: msgData.useWebSearch });
+      logger.debug('Message data being sent', { messageId: msgData.messageId, mode: chatMode, useWebSearch: msgData.useWebSearch, selectedDocsCount: selectedDocs.length });
+
+      // Set up rotating fun messages for long operations
+      let messageIndex = 0;
+      const messageRotationInterval = setInterval(() => {
+        const funMsg = FUN_WAITING_MESSAGES[messageIndex % FUN_WAITING_MESSAGES.length];
+        setMessages(prev => prev.map(msg =>
+          msg.id === processingMessageId ? {
+            ...msg,
+            content: `<div class="p-3 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl text-center">
+              <div class="flex items-center justify-center gap-2">
+                <div class="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                <span class="text-blue-700 font-medium">${funMsg.emoji} ${funMsg.text}</span>
+              </div>
+              <p class="text-xs text-slate-500 mt-2">Deep search in progress • ${Math.floor((messageIndex + 1) * 15)} seconds</p>
+            </div>`
+          } : msg
+        ));
+        messageIndex++;
+      }, 15000); // Rotate message every 15 seconds
+
       try {
+        // Create abort controller with extended timeout for deep search
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), CONFIG.LONG_REQUEST_TIMEOUT);
+
         const textRes = await fetch(webhookUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(msgData)
+          body: JSON.stringify(msgData),
+          signal: controller.signal
         });
+
+        clearTimeout(timeoutId);
+        clearInterval(messageRotationInterval); // Stop rotating messages
         logger.debug('Webhook response received', { status: textRes.ok, mode: chatMode });
 
         if (!textRes.ok) {
@@ -796,12 +861,22 @@ function App() {
           </div>`;
         }
       } catch (error) {
+        clearInterval(messageRotationInterval); // Stop rotating messages on error
         logger.error('Text request failed', error);
         textError = error;
-        textContent = `<div class="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700">
-          <strong>Text Response Error</strong><br/>
-          <p class="text-sm mt-1">Unable to process text response: ${error.message}</p>
-        </div>`;
+
+        // Check if it was a timeout
+        if (error.name === 'AbortError') {
+          textContent = `<div class="p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-700">
+            <strong>⏰ Request Timeout</strong><br/>
+            <p class="text-sm mt-1">The search took longer than expected (over 8 minutes). Please try refining your query or try again later.</p>
+          </div>`;
+        } else {
+          textContent = `<div class="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700">
+            <strong>Text Response Error</strong><br/>
+            <p class="text-sm mt-1">Unable to process text response: ${error.message}</p>
+          </div>`;
+        }
       }
 
       // Update processing message to show text is complete
