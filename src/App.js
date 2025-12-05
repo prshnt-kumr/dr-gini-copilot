@@ -327,6 +327,162 @@ const UploadModal = ({ isOpen, onClose, onUpload, isUploading }) => {
   );
 };
 
+// ============ DOCUMENT SELECTOR MODAL ============
+const DocumentSelectorModal = ({ isOpen, onClose, documents, selectedDocIds, onSelectDocs, onUploadClick }) => {
+  const [tempSelected, setTempSelected] = useState(new Set(selectedDocIds));
+  const [searchQuery, setSearchQuery] = useState('');
+
+  if (!isOpen) return null;
+
+  const readyDocs = documents.filter(d => d.status === 'ready');
+  const filteredDocs = searchQuery
+    ? readyDocs.filter(d => d.name.toLowerCase().includes(searchQuery.toLowerCase()))
+    : readyDocs;
+
+  const handleToggle = (docId) => {
+    const newSet = new Set(tempSelected);
+    if (newSet.has(docId)) {
+      newSet.delete(docId);
+    } else {
+      newSet.add(docId);
+    }
+    setTempSelected(newSet);
+  };
+
+  const handleStartChat = () => {
+    onSelectDocs(tempSelected);
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl max-h-[80vh] flex flex-col">
+        <div className="p-6 border-b border-slate-200">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-xl font-semibold text-slate-900">Select Documents</h2>
+              <p className="text-sm text-slate-500 mt-1">Choose documents to chat with</p>
+            </div>
+            <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-lg">
+              <X className="w-5 h-5 text-slate-500" />
+            </button>
+          </div>
+
+          {/* Search */}
+          {readyDocs.length > 3 && (
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Search documents..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full px-4 py-2 pl-10 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <Database className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+            </div>
+          )}
+        </div>
+
+        {/* Document List */}
+        <div className="flex-1 overflow-y-auto p-6">
+          {filteredDocs.length === 0 ? (
+            <div className="text-center py-8">
+              <FileText className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+              <p className="text-sm text-slate-500">
+                {searchQuery ? 'No documents match your search' : 'No documents uploaded yet'}
+              </p>
+              {!searchQuery && (
+                <button
+                  onClick={() => { onClose(); onUploadClick(); }}
+                  className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700"
+                >
+                  Upload Documents
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {filteredDocs.map(doc => (
+                <label
+                  key={doc.id}
+                  className={`flex items-start gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${
+                    tempSelected.has(doc.id)
+                      ? 'border-blue-500 bg-blue-50'
+                      : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={tempSelected.has(doc.id)}
+                    onChange={() => handleToggle(doc.id)}
+                    className="w-5 h-5 mt-0.5 text-blue-600 rounded border-slate-300 focus:ring-blue-500"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-slate-700 truncate">{doc.name}</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      {doc.source === 'web' && (
+                        <span className="inline-flex items-center gap-1 text-xs text-blue-600">
+                          <Globe className="w-3 h-3" />Web
+                        </span>
+                      )}
+                      {doc.addedToKnowledge ? (
+                        <span className="inline-flex items-center gap-1 text-xs text-purple-600">
+                          <Database className="w-3 h-3" />Knowledge
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-xs text-amber-600">
+                          <Eye className="w-3 h-3" />Session
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <CheckCircle
+                    className={`w-5 h-5 ${
+                      tempSelected.has(doc.id) ? 'text-blue-600' : 'text-slate-300'
+                    }`}
+                  />
+                </label>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="p-6 border-t border-slate-200">
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-sm text-slate-600">
+              {tempSelected.size} document{tempSelected.size !== 1 ? 's' : ''} selected
+            </span>
+            {readyDocs.length > 0 && (
+              <button
+                onClick={() => { onClose(); onUploadClick(); }}
+                className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+              >
+                + Upload More
+              </button>
+            )}
+          </div>
+          <div className="flex gap-3">
+            <button
+              onClick={onClose}
+              className="flex-1 px-4 py-2.5 border border-slate-300 text-slate-700 rounded-xl hover:bg-slate-50 font-medium"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleStartChat}
+              disabled={tempSelected.size === 0}
+              className="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed font-medium"
+            >
+              Chat with {tempSelected.size || 'Documents'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ============ FEEDBACK MODAL ============
 const FeedbackModal = ({ isOpen, onClose, onSubmit }) => {
   const [feedback, setFeedback] = useState({ rating: 0, comment: '' });
@@ -384,6 +540,11 @@ function App() {
   // ============ MODE & DOCUMENT SELECTION ============
   const [chatMode, setChatMode] = useState(() => localStorage.getItem('dr_gini_chat_mode') || 'research');
   const [selectedDocuments, setSelectedDocuments] = useState(new Set());
+
+  // ============ DOCUMENT CHAT MODE ============
+  const [documentChatActive, setDocumentChatActive] = useState(false);
+  const [docSelectorOpen, setDocSelectorOpen] = useState(false);
+  const [chatDocuments, setChatDocuments] = useState(new Set()); // Docs selected for chat
 
   // ============ CHAT HISTORY ============
   const [conversations, setConversations] = useState([]);
@@ -518,7 +679,7 @@ function App() {
     });
   }, [chatMode]);
 
-  // Document selection handlers
+  // Document selection handlers (legacy - for sidebar checkboxes)
   const toggleDocumentSelection = (docId) => {
     setSelectedDocuments(prev => {
       const newSet = new Set(prev);
@@ -529,6 +690,32 @@ function App() {
       }
       return newSet;
     });
+  };
+
+  // Document chat mode handlers
+  const handleOpenDocSelector = () => {
+    setDocSelectorOpen(true);
+  };
+
+  const handleSelectDocsForChat = (selectedIds) => {
+    setChatDocuments(selectedIds);
+    setDocumentChatActive(selectedIds.size > 0);
+  };
+
+  const handleRemoveDocFromChat = (docId) => {
+    setChatDocuments(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(docId);
+      if (newSet.size === 0) {
+        setDocumentChatActive(false);
+      }
+      return newSet;
+    });
+  };
+
+  const handleClearDocumentChat = () => {
+    setChatDocuments(new Set());
+    setDocumentChatActive(false);
   };
 
   // Document actions
@@ -812,18 +999,23 @@ function App() {
     setIsLoading(true);
     setLastRequestTime(Date.now());
 
-    // Prepare message data with selected documents for research mode
-    const selectedDocs = chatMode === 'research' ? Array.from(selectedDocuments) : [];
+    // Prepare message data with selected documents
+    // Priority: 1. Document chat mode docs, 2. Legacy checkbox selection, 3. None
+    const selectedDocs = documentChatActive && chatDocuments.size > 0
+      ? Array.from(chatDocuments)
+      : chatMode === 'research' ? Array.from(selectedDocuments) : [];
+
     const msgData = {
       message: currentMsg,
       sessionId: getSessionId(),
       userId: getAuthenticatedUserId(),
       messageId: `msg_${Date.now()}`,
       timestamp: new Date().toISOString(),
-      useWebSearch: webSearchEnabled,
+      useWebSearch: documentChatActive ? false : webSearchEnabled, // Disable web search in doc chat mode
       userDocuments: userDocs,
       chatMode: chatMode,
-      selectedDocuments: selectedDocs
+      selectedDocuments: selectedDocs,
+      documentChatMode: documentChatActive // Flag for backend
     };
 
     // Show initial processing message
@@ -866,8 +1058,12 @@ function App() {
       let webhookUrl;
       if (chatMode === 'web-search') {
         webhookUrl = CONFIG.WEB_SEARCH_WEBHOOK_URL;
+      } else if (documentChatActive && chatDocuments.size > 0) {
+        // Document chat mode - user clicked "My Documents" button
+        webhookUrl = CONFIG.DOCUMENT_CHAT_WEBHOOK_URL;
+        logger.info('Using document chat webhook', { count: chatDocuments.size });
       } else if (selectedDocs.length > 0) {
-        // If user has selected specific documents, use document chat webhook
+        // Legacy: If user has selected specific documents via checkboxes
         webhookUrl = CONFIG.DOCUMENT_CHAT_WEBHOOK_URL;
         logger.info('Using document chat webhook with selected docs', { count: selectedDocs.length });
       } else {
@@ -1401,19 +1597,66 @@ function App() {
 
         <div className="border-t border-slate-200 bg-white p-4">
           <div className="max-w-3xl mx-auto">
+            {/* Selected Documents Chips */}
+            {documentChatActive && chatDocuments.size > 0 && (
+              <div className="mb-3 flex flex-wrap items-center gap-2 p-3 bg-blue-50 border border-blue-200 rounded-xl">
+                <span className="text-xs font-medium text-blue-700">Chatting with:</span>
+                {Array.from(chatDocuments).map(docId => {
+                  const doc = documents.find(d => d.id === docId);
+                  if (!doc) return null;
+                  return (
+                    <div key={docId} className="flex items-center gap-1.5 px-2.5 py-1 bg-white border border-blue-300 rounded-lg shadow-sm">
+                      <FileText className="w-3.5 h-3.5 text-blue-600" />
+                      <span className="text-xs font-medium text-slate-700 max-w-[150px] truncate">{doc.name}</span>
+                      <button
+                        onClick={() => handleRemoveDocFromChat(docId)}
+                        className="ml-1 p-0.5 hover:bg-red-100 rounded-full transition-colors"
+                        title="Remove document"
+                      >
+                        <X className="w-3 h-3 text-slate-400 hover:text-red-600" />
+                      </button>
+                    </div>
+                  );
+                })}
+                <button
+                  onClick={handleClearDocumentChat}
+                  className="ml-auto text-xs text-slate-500 hover:text-slate-700 underline"
+                >
+                  Clear all
+                </button>
+              </div>
+            )}
+
             <div className="flex items-end gap-3 bg-slate-50 rounded-2xl p-2 border border-slate-200 focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100">
               {chatMode === 'research' && (
-                <button onClick={() => setUploadModalOpen(true)} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded-xl"><Upload className="w-5 h-5" /></button>
+                <>
+                  <button onClick={() => setUploadModalOpen(true)} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded-xl" title="Upload documents">
+                    <Upload className="w-5 h-5" />
+                  </button>
+                  <button
+                    onClick={handleOpenDocSelector}
+                    className={`p-2 rounded-xl transition-colors ${documentChatActive ? 'text-blue-600 bg-blue-100 hover:bg-blue-200' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-200'}`}
+                    title="Select documents to chat with"
+                  >
+                    <FileText className="w-5 h-5" />
+                  </button>
+                </>
               )}
               <textarea value={inputMessage} onChange={(e) => setInputMessage(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
-                placeholder={chatMode === 'web-search' ? 'Search the web...' : 'Ask about molecules, search papers, or chat with documents...'}
+                placeholder={
+                  documentChatActive
+                    ? 'Ask about your selected documents...'
+                    : chatMode === 'web-search'
+                    ? 'Search the web...'
+                    : 'Ask about molecules, search papers, or chat with documents...'
+                }
                 className="flex-1 bg-transparent border-none outline-none resize-none text-sm text-slate-700 placeholder:text-slate-400 py-2 max-h-32" rows={1} disabled={isLoading || cooldownTimeLeft > 0} />
               <button onClick={sendMessage} disabled={!inputMessage.trim() || isLoading || cooldownTimeLeft > 0}
                 className="p-2.5 bg-slate-900 text-white rounded-xl hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed"><Send className="w-4 h-4" /></button>
             </div>
             <div className="flex items-center justify-between mt-3">
-              {chatMode === 'research' ? (
+              {chatMode === 'research' && !documentChatActive ? (
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input type="checkbox" checked={webSearchEnabled} onChange={(e) => setWebSearchEnabled(e.target.checked)} className="w-4 h-4 rounded border-slate-300 text-blue-600" />
                   <Globe className={`w-4 h-4 ${webSearchEnabled ? 'text-blue-600' : 'text-slate-400'}`} />
@@ -1429,6 +1672,14 @@ function App() {
       </div>
 
       <UploadModal isOpen={uploadModalOpen} onClose={() => setUploadModalOpen(false)} onUpload={handleFileUpload} isUploading={isUploading} />
+      <DocumentSelectorModal
+        isOpen={docSelectorOpen}
+        onClose={() => setDocSelectorOpen(false)}
+        documents={documents}
+        selectedDocIds={chatDocuments}
+        onSelectDocs={handleSelectDocsForChat}
+        onUploadClick={() => setUploadModalOpen(true)}
+      />
       <FeedbackModal isOpen={feedbackModal.open} onClose={() => setFeedbackModal({ open: false, messageId: null })} onSubmit={submitDetailedFeedback} />
     </div>
   );
