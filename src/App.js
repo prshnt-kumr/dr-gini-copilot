@@ -930,6 +930,18 @@ function App() {
           try {
             parsedMessages = JSON.parse(parsedMessages);
             console.log('[DEBUG] Parsed messages from JSON string:', parsedMessages);
+
+            // Check if molecular components are intact
+            parsedMessages.forEach((msg, idx) => {
+              if (msg.content && msg.content.includes('__MOLECULAR_REACT_COMPONENT__')) {
+                console.log(`[DEBUG] Message ${idx} has molecular component:`, {
+                  isHTML: msg.isHTML,
+                  hasImages: msg.hasImages,
+                  contentLength: msg.content.length,
+                  hasMarker: msg.content.includes('__MOLECULAR_REACT_COMPONENT__')
+                });
+              }
+            });
           } catch (e) {
             console.error('[DEBUG] Failed to parse messages string:', e);
             parsedMessages = [];
