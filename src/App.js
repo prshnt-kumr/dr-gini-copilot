@@ -550,6 +550,7 @@ function App() {
   const [conversations, setConversations] = useState([]);
   const [currentConversationId, setCurrentConversationId] = useState(null);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [loadingConversationId, setLoadingConversationId] = useState(null);
 
   // ============ AUTHENTICATION ============
   const [user, setUser] = useState(null);
@@ -826,6 +827,7 @@ function App() {
   }, [messages, chatMode, currentConversationId, user]); // Added user dependency
 
   const loadConversation = async (conversationId) => {
+    setLoadingConversationId(conversationId);
     try {
       const actualUserId = user && user.email ? user.email : getUserId();
       console.log('[DEBUG] loadConversation - using userId:', actualUserId);
@@ -852,10 +854,39 @@ function App() {
             setChatMode(result.chatMode);
           }
           logger.info('Conversation loaded');
+
+          // Show success message
+          setMessages(prev => [...prev, {
+            id: Date.now(),
+            type: 'bot',
+            content: '✅ Conversation loaded successfully!',
+            timestamp: new Date(),
+            isWelcome: false
+          }]);
+        } else {
+          // No messages found
+          setMessages(prev => [...prev, {
+            id: Date.now(),
+            type: 'bot',
+            content: '⚠️ No messages found in this conversation.',
+            timestamp: new Date(),
+            isError: true
+          }]);
         }
+      } else {
+        throw new Error('Failed to load conversation from server');
       }
     } catch (e) {
       logger.error('Failed to load conversation', e);
+      setMessages(prev => [...prev, {
+        id: Date.now(),
+        type: 'bot',
+        content: `❌ Failed to load conversation: ${e.message}`,
+        timestamp: new Date(),
+        isError: true
+      }]);
+    } finally {
+      setLoadingConversationId(null);
     }
   };
 
@@ -1439,19 +1470,43 @@ function App() {
               </div>
             ) : (
               <div className="space-y-2 max-h-60 overflow-y-auto">
-                {conversations.slice(0, 5).map(conv => (
-                  <button
-                    key={conv.id}
-                    onClick={() => loadConversation(conv.id)}
-                    className="w-full text-left p-2.5 bg-white hover:bg-purple-100 rounded-lg border border-purple-100 transition-colors group"
-                  >
-                    <p className="text-xs font-medium text-purple-900 truncate">{conv.title || 'Untitled'}</p>
-                    <div className="flex items-center justify-between mt-1">
-                      <p className="text-xs text-purple-600">{conv.messageCount || 0} msgs</p>
-                      <p className="text-xs text-purple-500">{new Date(conv.timestamp).toLocaleDateString()}</p>
-                    </div>
-                  </button>
-                ))}
+                {conversations.slice(0, 5).map(conv => {
+                  const isActive = currentConversationId === conv.id;
+                  const isLoading = loadingConversationId === conv.id;
+
+                  return (
+                    <button
+                      key={conv.id}
+                      onClick={() => loadConversation(conv.id)}
+                      disabled={isLoading}
+                      className={`w-full text-left p-2.5 rounded-lg border transition-colors group relative ${
+                        isActive
+                          ? 'bg-purple-100 border-purple-300 shadow-sm'
+                          : 'bg-white hover:bg-purple-50 border-purple-100'
+                      } ${isLoading ? 'opacity-50 cursor-wait' : ''}`}
+                    >
+                      {isLoading && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-white/80 rounded-lg">
+                          <Loader2 className="w-4 h-4 text-purple-600 animate-spin" />
+                        </div>
+                      )}
+                      <div className="flex items-start justify-between">
+                        <p className="text-xs font-medium text-purple-900 truncate flex-1 pr-2">
+                          {conv.title || 'Untitled'}
+                        </p>
+                        {isActive && (
+                          <span className="px-1.5 py-0.5 bg-purple-600 text-white text-xs rounded font-semibold">
+                            Active
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center justify-between mt-1">
+                        <p className="text-xs text-purple-600">{conv.messageCount || 0} msgs</p>
+                        <p className="text-xs text-purple-500">{new Date(conv.timestamp).toLocaleDateString()}</p>
+                      </div>
+                    </button>
+                  );
+                })}
                 {conversations.length > 5 && (
                   <p className="text-xs text-purple-600 text-center pt-2">+{conversations.length - 5} more</p>
                 )}
