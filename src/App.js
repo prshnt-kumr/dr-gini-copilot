@@ -123,6 +123,41 @@ const getUserId = () => {
 
 const formatTime = (date) => new Date(date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 const formatTimeLeft = (s) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
+
+// Date grouping helpers for chat history
+const getDateGroup = (timestamp) => {
+  const date = new Date(timestamp);
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+
+  // Reset times to midnight for comparison
+  const dateOnly = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const todayOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const yesterdayOnly = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate());
+
+  if (dateOnly.getTime() === todayOnly.getTime()) return 'today';
+  if (dateOnly.getTime() === yesterdayOnly.getTime()) return 'yesterday';
+
+  const diffTime = todayOnly.getTime() - dateOnly.getTime();
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+  if (diffDays <= 7) return 'last7days';
+  return 'older'; // We'll filter these out
+};
+
+const groupConversationsByDate = (conversations) => {
+  const groups = { today: [], yesterday: [], last7days: [] };
+
+  conversations.forEach(conv => {
+    const group = getDateGroup(conv.timestamp);
+    if (group !== 'older' && groups[group]) {
+      groups[group].push(conv);
+    }
+  });
+
+  return groups;
+};
 const formatSize = (bytes) => {
   if (typeof bytes === 'string') return bytes;
   return bytes < 1024 * 1024 ? (bytes / 1024).toFixed(1) + ' KB' : (bytes / (1024 * 1024)).toFixed(1) + ' MB';
@@ -855,11 +890,12 @@ function App() {
           }
           logger.info('Conversation loaded');
 
-          // Show success message
+          // Show continuation message
+          const convTitle = result.title || conversations.find(c => c.id === conversationId)?.title || 'conversation';
           setMessages(prev => [...prev, {
             id: Date.now(),
             type: 'bot',
-            content: '✅ Conversation loaded successfully!',
+            content: `💬 Ready to continue: **${convTitle}**\n\nType your message below to continue this conversation.`,
             timestamp: new Date(),
             isWelcome: false
           }]);
@@ -1468,50 +1504,80 @@ function App() {
                 <Clock className="w-8 h-8 text-purple-300 mx-auto mb-2" />
                 <p className="text-xs text-purple-600">No history yet</p>
               </div>
-            ) : (
-              <div className="space-y-2 max-h-60 overflow-y-auto">
-                {conversations.slice(0, 5).map(conv => {
-                  const isActive = currentConversationId === conv.id;
-                  const isLoading = loadingConversationId === conv.id;
+            ) : (() => {
+              const grouped = groupConversationsByDate(conversations);
+              const renderConversation = (conv) => {
+                const isActive = currentConversationId === conv.id;
+                const isLoading = loadingConversationId === conv.id;
 
-                  return (
-                    <button
-                      key={conv.id}
-                      onClick={() => loadConversation(conv.id)}
-                      disabled={isLoading}
-                      className={`w-full text-left p-2.5 rounded-lg border transition-colors group relative ${
-                        isActive
-                          ? 'bg-purple-100 border-purple-300 shadow-sm'
-                          : 'bg-white hover:bg-purple-50 border-purple-100'
-                      } ${isLoading ? 'opacity-50 cursor-wait' : ''}`}
-                    >
-                      {isLoading && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-white/80 rounded-lg">
-                          <Loader2 className="w-4 h-4 text-purple-600 animate-spin" />
-                        </div>
+                return (
+                  <button
+                    key={conv.id}
+                    onClick={() => loadConversation(conv.id)}
+                    disabled={isLoading}
+                    className={`w-full text-left p-2.5 rounded-lg border transition-colors group relative ${
+                      isActive
+                        ? 'bg-purple-100 border-purple-300 shadow-sm'
+                        : 'bg-white hover:bg-purple-50 border-purple-100'
+                    } ${isLoading ? 'opacity-50 cursor-wait' : ''}`}
+                  >
+                    {isLoading && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-white/80 rounded-lg">
+                        <Loader2 className="w-4 h-4 text-purple-600 animate-spin" />
+                      </div>
+                    )}
+                    <div className="flex items-start justify-between">
+                      <p className="text-xs font-medium text-purple-900 truncate flex-1 pr-2">
+                        {conv.title || 'Untitled'}
+                      </p>
+                      {isActive && (
+                        <span className="px-1.5 py-0.5 bg-purple-600 text-white text-xs rounded font-semibold">
+                          Active
+                        </span>
                       )}
-                      <div className="flex items-start justify-between">
-                        <p className="text-xs font-medium text-purple-900 truncate flex-1 pr-2">
-                          {conv.title || 'Untitled'}
-                        </p>
-                        {isActive && (
-                          <span className="px-1.5 py-0.5 bg-purple-600 text-white text-xs rounded font-semibold">
-                            Active
-                          </span>
-                        )}
+                    </div>
+                    <div className="flex items-center justify-between mt-1">
+                      <p className="text-xs text-purple-600">{conv.messageCount || 0} msgs</p>
+                      <p className="text-xs text-purple-500">{formatTime(new Date(conv.timestamp))}</p>
+                    </div>
+                  </button>
+                );
+              };
+
+              return (
+                <div className="space-y-3 max-h-72 overflow-y-auto">
+                  {/* Today */}
+                  {grouped.today.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold text-purple-700 mb-1.5 px-1">Today</p>
+                      <div className="space-y-1.5">
+                        {grouped.today.map(renderConversation)}
                       </div>
-                      <div className="flex items-center justify-between mt-1">
-                        <p className="text-xs text-purple-600">{conv.messageCount || 0} msgs</p>
-                        <p className="text-xs text-purple-500">{new Date(conv.timestamp).toLocaleDateString()}</p>
+                    </div>
+                  )}
+
+                  {/* Yesterday */}
+                  {grouped.yesterday.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold text-purple-700 mb-1.5 px-1">Yesterday</p>
+                      <div className="space-y-1.5">
+                        {grouped.yesterday.map(renderConversation)}
                       </div>
-                    </button>
-                  );
-                })}
-                {conversations.length > 5 && (
-                  <p className="text-xs text-purple-600 text-center pt-2">+{conversations.length - 5} more</p>
-                )}
-              </div>
-            )}
+                    </div>
+                  )}
+
+                  {/* Last 7 Days */}
+                  {grouped.last7days.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold text-purple-700 mb-1.5 px-1">Last 7 Days</p>
+                      <div className="space-y-1.5">
+                        {grouped.last7days.map(renderConversation)}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </div>
 
           {/* Saved Analyses - Green Gradient */}
@@ -1640,6 +1706,34 @@ function App() {
 
         <div className="flex-1 overflow-y-auto">
           <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
+            {/* Active Conversation Banner */}
+            {currentConversationId && (
+              <div className="bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200 rounded-xl p-3 mb-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center">
+                      <MessageCircle className="w-3.5 h-3.5 text-white" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-purple-900">
+                        Continuing: {conversations.find(c => c.id === currentConversationId)?.title || 'Previous conversation'}
+                      </p>
+                      <p className="text-xs text-purple-600">Type below to continue this conversation</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setCurrentConversationId(null);
+                      setMessages([messages.find(m => m.isWelcome)]);
+                    }}
+                    className="px-3 py-1.5 bg-white hover:bg-purple-100 border border-purple-200 rounded-lg text-xs font-medium text-purple-700 transition-colors"
+                  >
+                    New Topic
+                  </button>
+                </div>
+              </div>
+            )}
+
             {messages.map((msg) => (
               <div key={msg.id} className={`flex gap-4 ${msg.type === 'user' ? 'flex-row-reverse' : ''}`}>
                 <div className={`flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center ${msg.type === 'user' ? 'bg-slate-900' : msg.isError ? 'bg-red-500' : 'bg-gradient-to-br from-blue-500 to-purple-600'}`}>
