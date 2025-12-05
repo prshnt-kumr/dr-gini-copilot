@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Send, FileText, Upload, Bookmark,
   Sparkles, Clock, Trash2, Download, Copy, Check, Menu, X,
-  FolderOpen, MessageSquare, Beaker, Atom,
+  MessageSquare, Beaker, Atom,
   Star, ThumbsUp, ThumbsDown, Loader2, User,
   Globe, ExternalLink, Database, FileUp, CheckCircle, AlertCircle,
   Eye, Archive, GraduationCap, FileDown, MessageCircle,
@@ -535,10 +535,10 @@ function App() {
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [webSearchEnabled, setWebSearchEnabled] = useState(false);
-  const [isLoadingDocs, setIsLoadingDocs] = useState(false);
 
   // ============ MODE & DOCUMENT SELECTION ============
   const [chatMode, setChatMode] = useState(() => localStorage.getItem('dr_gini_chat_mode') || 'research');
+  // eslint-disable-next-line no-unused-vars
   const [selectedDocuments, setSelectedDocuments] = useState(new Set());
 
   // ============ DOCUMENT CHAT MODE ============
@@ -615,7 +615,6 @@ function App() {
   // Fetch user documents on load
   const fetchUserDocuments = useCallback(async () => {
     console.log('[DEBUG] fetchUserDocuments called');
-    setIsLoadingDocs(true);
     try {
       const response = await fetch(CONFIG.DOCS_REGISTRY_URL, {
         method: 'POST',
@@ -644,7 +643,6 @@ function App() {
       console.error('[DEBUG] Error fetching documents:', e);
       logger.error('Failed to load documents', e);
     }
-    finally { setIsLoadingDocs(false); }
   }, [user]); // Include user so function updates when user logs in
 
   // Fetch documents only after user is authenticated
@@ -679,19 +677,6 @@ function App() {
     });
   }, [chatMode]);
 
-  // Document selection handlers (legacy - for sidebar checkboxes)
-  const toggleDocumentSelection = (docId) => {
-    setSelectedDocuments(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(docId)) {
-        newSet.delete(docId);
-      } else {
-        newSet.add(docId);
-      }
-      return newSet;
-    });
-  };
-
   // Document chat mode handlers
   const handleOpenDocSelector = () => {
     setDocSelectorOpen(true);
@@ -718,7 +703,8 @@ function App() {
     setDocumentChatActive(false);
   };
 
-  // Document actions
+  // Document actions (kept for future use in modal)
+  // eslint-disable-next-line no-unused-vars
   const deleteDocument = async (docId, driveFileId) => {
     try {
       await fetch(CONFIG.DOCS_REGISTRY_URL, {
@@ -1349,78 +1335,41 @@ function App() {
     <div className="flex h-screen bg-slate-50">
       {/* Sidebar */}
       <div className={`${sidebarOpen ? 'w-72' : 'w-0'} transition-all duration-300 bg-white border-r border-slate-200 flex flex-col overflow-hidden`}>
+        {/* Header - Clean and minimal */}
         <div className="p-4 border-b border-slate-100">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-lg shadow-blue-500/25"><Atom className="w-5 h-5 text-white" /></div>
-            <div><h1 className="font-semibold text-slate-900">Dr. Gini</h1><p className="text-xs text-slate-500">Research Copilot</p></div>
-          </div>
-          <div className="mt-3 flex items-center justify-between gap-2 px-2 py-1.5 bg-slate-100 rounded-lg">
-            <div className="flex items-center gap-2 min-w-0 flex-1">
-              <UserCircle className="w-4 h-4 text-slate-500 flex-shrink-0" />
-              <span className="text-xs text-slate-600 truncate" title={user?.email}>{user?.email || 'Guest'}</span>
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-lg shadow-blue-500/25">
+              <Atom className="w-5 h-5 text-white" />
             </div>
-            <button
-              onClick={handleLogout}
-              className="flex-shrink-0 text-xs text-slate-500 hover:text-red-600 hover:bg-red-50 px-2 py-1 rounded transition-colors"
-              title="Logout"
-            >
-              Logout
-            </button>
+            <div>
+              <h1 className="font-semibold text-slate-900">Dr. Gini</h1>
+              <p className="text-xs text-slate-500">Research Copilot</p>
+            </div>
           </div>
         </div>
 
-        <div className="p-3 space-y-2">
-          <button onClick={() => setUploadModalOpen(true)} className="w-full flex items-center gap-2 px-4 py-2.5 border-2 border-dashed border-slate-200 text-slate-600 rounded-xl hover:border-blue-400 hover:text-blue-600"><Upload className="w-4 h-4" /><span className="font-medium">Upload Document</span></button>
-        </div>
-
+        {/* Tabs - Removed "My Docs" since docs are now via modal */}
         <div className="flex border-b border-slate-100 px-3">
-          {[{ id: 'chat', icon: MessageSquare, label: 'Chat' }, { id: 'history', icon: Clock, label: 'History' }, { id: 'docs', icon: FolderOpen, label: 'My Docs' }, { id: 'saved', icon: Bookmark, label: 'Saved' }].map(tab => (
-            <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`flex-1 flex items-center justify-center gap-1.5 py-3 text-sm font-medium border-b-2 ${activeTab === tab.id ? 'border-blue-500 text-blue-600' : 'border-transparent text-slate-500'}`}>
-              <tab.icon className="w-4 h-4" /><span>{tab.label}</span>
-              {tab.id === 'docs' && documents.length > 0 && <span className="ml-1 px-1.5 py-0.5 text-xs bg-blue-100 text-blue-600 rounded-full">{documents.length}</span>}
+          {[
+            { id: 'chat', icon: MessageSquare, label: 'Chat' },
+            { id: 'history', icon: Clock, label: 'History' },
+            { id: 'saved', icon: Bookmark, label: 'Saved' }
+          ].map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-3 text-sm font-medium border-b-2 ${
+                activeTab === tab.id ? 'border-blue-500 text-blue-600' : 'border-transparent text-slate-500'
+              }`}
+            >
+              <tab.icon className="w-4 h-4" />
+              <span>{tab.label}</span>
             </button>
           ))}
         </div>
 
+        {/* Tab Content Area */}
         <div className="flex-1 overflow-y-auto p-3">
-          {activeTab === 'docs' && (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-medium text-slate-500">YOUR DOCUMENTS</span>
-                <button onClick={fetchUserDocuments} disabled={isLoadingDocs} className="p-1 hover:bg-slate-100 rounded"><RefreshCw className={`w-3 h-3 text-slate-400 ${isLoadingDocs ? 'animate-spin' : ''}`} /></button>
-              </div>
-              {isLoadingDocs ? <div className="text-center py-8"><Loader2 className="w-6 h-6 text-slate-300 mx-auto animate-spin" /></div>
-                : documents.length === 0 ? <div className="text-center py-8"><FileText className="w-10 h-10 text-slate-300 mx-auto mb-2" /><p className="text-sm text-slate-400">No documents yet</p></div>
-                  : documents.map(d => (
-                    <div key={d.id} className="p-3 bg-slate-50 rounded-xl hover:bg-slate-100 group">
-                      <div className="flex items-start gap-3">
-                        {/* Checkbox for document selection */}
-                        <input
-                          type="checkbox"
-                          checked={selectedDocuments.has(d.id)}
-                          onChange={() => toggleDocumentSelection(d.id)}
-                          disabled={d.status !== 'ready'}
-                          className="mt-2 w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500 disabled:opacity-30 cursor-pointer"
-                          title="Select for chat"
-                        />
-                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${d.status === 'ready' ? 'bg-green-100' : d.status === 'error' ? 'bg-red-100' : 'bg-blue-100'}`}>
-                          {d.status === 'uploading' && <Loader2 className="w-4 h-4 text-blue-600 animate-spin" />}
-                          {d.status === 'ready' && <CheckCircle className="w-4 h-4 text-green-600" />}
-                          {d.status === 'error' && <AlertCircle className="w-4 h-4 text-red-600" />}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-slate-700 truncate">{d.name}</p>
-                          <div className="flex items-center gap-2 mt-1">
-                            {d.source === 'web' && <span className="inline-flex items-center gap-1 text-xs text-blue-600"><Globe className="w-3 h-3" />Web</span>}
-                            {d.addedToKnowledge ? <span className="inline-flex items-center gap-1 text-xs text-purple-600"><Database className="w-3 h-3" />Knowledge</span> : <span className="inline-flex items-center gap-1 text-xs text-amber-600"><Eye className="w-3 h-3" />Explore</span>}
-                          </div>
-                        </div>
-                        <button onClick={() => deleteDocument(d.id, d.driveFileId)} className="p-1 hover:bg-red-100 rounded opacity-0 group-hover:opacity-100"><Trash2 className="w-4 h-4 text-red-400" /></button>
-                      </div>
-                    </div>
-                  ))}
-            </div>
-          )}
           {activeTab === 'saved' && (
             <div className="space-y-2">
               {savedAnalyses.length === 0 ? <p className="text-sm text-slate-400 text-center py-4">No saved analyses</p> : savedAnalyses.map(a => (
@@ -1477,11 +1426,43 @@ function App() {
           )}
         </div>
 
-        {messages.length > 1 && (
-          <div className="p-3 border-t border-slate-100">
-            <button onClick={downloadChat} className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm"><Download className="w-4 h-4" />Export</button>
+        {/* Bottom Section - User Info & Actions */}
+        <div className="border-t border-slate-100">
+          {/* Export Button (conditional) */}
+          {messages.length > 1 && (
+            <div className="p-3 border-b border-slate-100">
+              <button
+                onClick={downloadChat}
+                className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm transition-colors"
+              >
+                <Download className="w-4 h-4" />
+                Export Chat
+              </button>
+            </div>
+          )}
+
+          {/* User Info & Logout */}
+          <div className="p-3">
+            <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-slate-50 to-slate-100 rounded-xl border border-slate-200">
+              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center flex-shrink-0">
+                <UserCircle className="w-5 h-5 text-white" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium text-slate-700 truncate" title={user?.email}>
+                  {user?.email || 'Guest'}
+                </p>
+                <p className="text-xs text-slate-500">Research Account</p>
+              </div>
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                title="Sign out"
+              >
+                Logout
+              </button>
+            </div>
           </div>
-        )}
+        </div>
       </div>
 
       {/* Main */}
