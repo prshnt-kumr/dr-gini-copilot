@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Send, FileText, Upload, Bookmark,
-  Sparkles, Clock, Download, Copy, Check, Menu, X,
+  Sparkles, Clock, Download, Copy, Check, Menu, X, ChevronLeft,
   MessageSquare, Beaker, Atom,
   Star, ThumbsUp, ThumbsDown, Loader2, User,
   Globe, ExternalLink, Database, FileUp, CheckCircle, AlertCircle,
@@ -334,10 +334,11 @@ const DocumentSelectorModal = ({ isOpen, onClose, documents, selectedDocIds, onS
 
   if (!isOpen) return null;
 
-  const readyDocs = documents.filter(d => d.status === 'ready');
+  // Only show session docs (not knowledge docs) - knowledge docs are in vector DB
+  const sessionDocs = documents.filter(d => d.status === 'ready' && !d.addedToKnowledge);
   const filteredDocs = searchQuery
-    ? readyDocs.filter(d => d.name.toLowerCase().includes(searchQuery.toLowerCase()))
-    : readyDocs;
+    ? sessionDocs.filter(d => d.name.toLowerCase().includes(searchQuery.toLowerCase()))
+    : sessionDocs;
 
   const handleToggle = (docId) => {
     const newSet = new Set(tempSelected);
@@ -369,7 +370,7 @@ const DocumentSelectorModal = ({ isOpen, onClose, documents, selectedDocIds, onS
           </div>
 
           {/* Search */}
-          {readyDocs.length > 3 && (
+          {sessionDocs.length > 3 && (
             <div className="relative">
               <input
                 type="text"
@@ -453,7 +454,7 @@ const DocumentSelectorModal = ({ isOpen, onClose, documents, selectedDocIds, onS
             <span className="text-sm text-slate-600">
               {tempSelected.size} document{tempSelected.size !== 1 ? 's' : ''} selected
             </span>
-            {readyDocs.length > 0 && (
+            {sessionDocs.length > 0 && (
               <button
                 onClick={() => { onClose(); onUploadClick(); }}
                 className="text-sm text-blue-600 hover:text-blue-700 font-medium"
@@ -1397,6 +1398,14 @@ function App() {
                   <span className="px-2 py-0.5 bg-purple-200 text-purple-800 rounded-full font-semibold">{chatDocuments.size}</span>
                 </div>
               )}
+              {documents.filter(d => d.addedToKnowledge).length > 0 && (
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-blue-700 font-medium">Knowledge DB</span>
+                  <span className="px-2 py-0.5 bg-emerald-200 text-emerald-800 rounded-full font-semibold" title="Documents in vector database">
+                    {documents.filter(d => d.addedToKnowledge).length}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -1525,7 +1534,7 @@ function App() {
         <div className="h-14 border-b border-slate-200 bg-white/80 backdrop-blur-sm flex items-center px-4 relative">
           {/* Left Section */}
           <div className="flex items-center gap-3">
-            <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 hover:bg-slate-100 rounded-lg">{sidebarOpen ? <X className="w-5 h-5 text-slate-500" /> : <Menu className="w-5 h-5 text-slate-500" />}</button>
+            <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 hover:bg-slate-100 rounded-lg" title={sidebarOpen ? "Hide sidebar" : "Show sidebar"}>{sidebarOpen ? <ChevronLeft className="w-5 h-5 text-slate-500" /> : <Menu className="w-5 h-5 text-slate-500" />}</button>
             <div className="flex items-center gap-2">
               <div className={`w-2 h-2 rounded-full ${isLoading ? 'bg-amber-400 animate-pulse' : 'bg-green-400'}`} />
               <span className="text-sm text-slate-600">{isLoading ? 'Processing...' : 'Ready'}</span>
@@ -1663,13 +1672,25 @@ function App() {
             <div className="flex items-end gap-3 bg-slate-50 rounded-2xl p-2 border border-slate-200 focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100">
               {chatMode === 'research' && (
                 <>
-                  <button onClick={() => setUploadModalOpen(true)} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded-xl" title="Upload documents">
+                  {/* Upload Button - Green Theme */}
+                  <button
+                    onClick={() => setUploadModalOpen(true)}
+                    className="relative p-2 text-green-600 hover:text-green-700 hover:bg-green-50 rounded-xl transition-colors"
+                    title={`Upload documents${documents.filter(d => !d.addedToKnowledge).length > 0 ? ` (${documents.filter(d => !d.addedToKnowledge).length} session docs)` : ''}`}
+                  >
                     <Upload className="w-5 h-5" />
+                    {documents.filter(d => !d.addedToKnowledge).length > 0 && (
+                      <span className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 text-white text-xs rounded-full flex items-center justify-center font-semibold">
+                        {documents.filter(d => !d.addedToKnowledge).length}
+                      </span>
+                    )}
                   </button>
+
+                  {/* Doc Chat Button - Purple Theme */}
                   <button
                     onClick={handleOpenDocSelector}
-                    className={`p-2 rounded-xl transition-colors ${documentChatActive ? 'text-blue-600 bg-blue-100 hover:bg-blue-200' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-200'}`}
-                    title="Select documents to chat with"
+                    className={`p-2 rounded-xl transition-colors ${documentChatActive ? 'text-purple-700 bg-purple-100 hover:bg-purple-200' : 'text-purple-500 hover:text-purple-700 hover:bg-purple-50'}`}
+                    title="Chat with uploaded documents"
                   >
                     <FileText className="w-5 h-5" />
                   </button>
