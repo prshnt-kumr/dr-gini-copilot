@@ -9,6 +9,7 @@ import {
   ChevronDown, ChevronUp, Microscope, RefreshCw, UserCircle,
   Lightbulb, ArrowRight
 } from 'lucide-react';
+import { marked } from 'marked';
 
 // ============ CONFIGURATION ============
 // All webhook URLs are loaded from environment variables
@@ -24,6 +25,49 @@ const CONFIG = {
   CHAT_HISTORY_WEBHOOK_URL: process.env.REACT_APP_CHAT_HISTORY_WEBHOOK_URL,
   REQUEST_COOLDOWN: parseInt(process.env.REACT_APP_REQUEST_COOLDOWN || '180000', 10),
   LONG_REQUEST_TIMEOUT: 480000 // 8 minutes for deep search operations
+};
+
+// ============ MARKDOWN CONFIGURATION ============
+// Configure marked for safe and clean HTML output
+marked.setOptions({
+  breaks: true, // Convert \n to <br>
+  gfm: true, // GitHub Flavored Markdown
+  headerIds: false, // Don't add IDs to headers
+  mangle: false, // Don't escape email addresses
+});
+
+// Utility function to convert markdown to styled HTML
+const formatMarkdownToHTML = (text) => {
+  if (!text) return '';
+
+  // First, try to parse as markdown
+  let html = marked.parse(text);
+
+  // Add custom styling classes to elements
+  html = html
+    // Style headers
+    .replace(/<h1>/g, '<h1 class="text-2xl font-bold text-slate-900 mb-3 mt-4">')
+    .replace(/<h2>/g, '<h2 class="text-xl font-bold text-slate-800 mb-2 mt-3">')
+    .replace(/<h3>/g, '<h3 class="text-lg font-semibold text-slate-800 mb-2 mt-3">')
+    .replace(/<h4>/g, '<h4 class="text-base font-semibold text-slate-700 mb-2 mt-2">')
+    // Style paragraphs
+    .replace(/<p>/g, '<p class="text-slate-700 mb-3 leading-relaxed">')
+    // Style lists
+    .replace(/<ul>/g, '<ul class="list-disc list-inside mb-3 space-y-1 text-slate-700">')
+    .replace(/<ol>/g, '<ol class="list-decimal list-inside mb-3 space-y-1 text-slate-700">')
+    .replace(/<li>/g, '<li class="ml-2">')
+    // Style code blocks
+    .replace(/<pre>/g, '<pre class="bg-slate-900 text-slate-100 p-3 rounded-lg overflow-x-auto mb-3">')
+    .replace(/<code>/g, '<code class="bg-slate-100 text-slate-800 px-1.5 py-0.5 rounded text-sm font-mono">')
+    // Style blockquotes
+    .replace(/<blockquote>/g, '<blockquote class="border-l-4 border-blue-500 pl-4 italic text-slate-600 mb-3">')
+    // Style strong and em
+    .replace(/<strong>/g, '<strong class="font-semibold text-slate-900">')
+    .replace(/<em>/g, '<em class="italic text-slate-700">')
+    // Style links
+    .replace(/<a /g, '<a class="text-blue-600 hover:text-blue-700 underline" target="_blank" rel="noopener noreferrer" ');
+
+  return html;
 };
 
 // ============ FUN WAITING MESSAGES ============
@@ -699,19 +743,43 @@ function App() {
     try {
       const raw = await response.text();
       let result = { html: '', usedWebSearch: false, webResults: null };
+
       if (raw.trim().startsWith('{') || raw.trim().startsWith('[')) {
+        // JSON response
         const json = JSON.parse(raw);
         const item = Array.isArray(json) ? json[0] : json;
+
         if (isImage && item.success && item.image_url) {
+          // Special handling for molecular images
           result.html = `__MOLECULAR_REACT_COMPONENT__${JSON.stringify(item)}__END_MOLECULAR_REACT_COMPONENT__`;
         } else {
-          result.html = item.output || item.response || item.content || item.message || '';
+          // Extract text content from JSON
+          const textContent = item.output || item.response || item.content || item.message || '';
+
+          // Convert markdown to HTML for better presentation
+          if (textContent && !textContent.includes('<')) {
+            // If it's plain text or markdown (not already HTML)
+            result.html = formatMarkdownToHTML(textContent);
+          } else {
+            // Already HTML, use as-is
+            result.html = textContent;
+          }
+
           result.usedWebSearch = item.used_web_search || false;
           if (item.web_results || item.papers) result.webResults = item.web_results || item.papers;
         }
       } else {
-        result.html = raw.includes('<') ? raw : `<p>${raw.replace(/\n/g, '<br>')}</p>`;
+        // Plain text response
+        if (raw.includes('<')) {
+          // Already HTML
+          result.html = raw;
+        } else {
+          // Convert markdown to HTML
+          result.html = formatMarkdownToHTML(raw);
+        }
       }
+
+      logger.debug('Processed response', { hasHtml: !!result.html, length: result.html.length });
       return result;
     } catch (e) {
       logger.error('Process error', e);
