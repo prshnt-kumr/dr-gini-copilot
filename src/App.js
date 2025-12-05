@@ -919,11 +919,27 @@ function App() {
       });
       if (response.ok) {
         const data = await response.json();
+        console.log('[DEBUG] Raw load response:', data);
+
         const result = Array.isArray(data) ? data[0] : data;
-        if (result.messages && Array.isArray(result.messages)) {
+        console.log('[DEBUG] Load result:', result);
+
+        // Parse messages if it's a JSON string
+        let parsedMessages = result.messages;
+        if (typeof parsedMessages === 'string') {
+          try {
+            parsedMessages = JSON.parse(parsedMessages);
+            console.log('[DEBUG] Parsed messages from JSON string:', parsedMessages);
+          } catch (e) {
+            console.error('[DEBUG] Failed to parse messages string:', e);
+            parsedMessages = [];
+          }
+        }
+
+        if (parsedMessages && Array.isArray(parsedMessages) && parsedMessages.length > 0) {
           // Add welcome message at the beginning
           const welcomeMsg = messages.find(m => m.isWelcome);
-          setMessages([welcomeMsg, ...result.messages]);
+          setMessages([welcomeMsg, ...parsedMessages]);
           setCurrentConversationId(conversationId);
           if (result.chatMode) {
             setChatMode(result.chatMode);
@@ -941,6 +957,7 @@ function App() {
           }]);
         } else {
           // No messages found
+          console.log('[DEBUG] No valid messages found. parsedMessages:', parsedMessages);
           setMessages(prev => [...prev, {
             id: Date.now(),
             type: 'bot',
