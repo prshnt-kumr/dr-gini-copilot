@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Send, FileText, Upload, Bookmark,
-  Sparkles, Clock, Trash2, Download, Copy, Check, Menu, X,
+  Sparkles, Clock, Download, Copy, Check, Menu, X,
   MessageSquare, Beaker, Atom,
   Star, ThumbsUp, ThumbsDown, Loader2, User,
   Globe, ExternalLink, Database, FileUp, CheckCircle, AlertCircle,
@@ -524,7 +524,6 @@ function App() {
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [activeTab, setActiveTab] = useState('chat');
   const [copiedId, setCopiedId] = useState(null);
   const [feedbackModal, setFeedbackModal] = useState({ open: false, messageId: null });
   const [userFeedback, setUserFeedback] = useState({});
@@ -832,6 +831,7 @@ function App() {
     }
   };
 
+  // eslint-disable-next-line no-unused-vars
   const deleteConversation = async (conversationId) => {
     try {
       await fetch(CONFIG.CHAT_HISTORY_WEBHOOK_URL, {
@@ -1348,82 +1348,110 @@ function App() {
           </div>
         </div>
 
-        {/* Tabs - Removed "My Docs" since docs are now via modal */}
-        <div className="flex border-b border-slate-100 px-3">
-          {[
-            { id: 'chat', icon: MessageSquare, label: 'Chat' },
-            { id: 'history', icon: Clock, label: 'History' },
-            { id: 'saved', icon: Bookmark, label: 'Saved' }
-          ].map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-3 text-sm font-medium border-b-2 ${
-                activeTab === tab.id ? 'border-blue-500 text-blue-600' : 'border-transparent text-slate-500'
-              }`}
-            >
-              <tab.icon className="w-4 h-4" />
-              <span>{tab.label}</span>
-            </button>
-          ))}
-        </div>
+        {/* Colorful Stacked Sections - No Tabs! */}
+        <div className="flex-1 overflow-y-auto p-3 space-y-4">
 
-        {/* Tab Content Area */}
-        <div className="flex-1 overflow-y-auto p-3">
-          {activeTab === 'saved' && (
-            <div className="space-y-2">
-              {savedAnalyses.length === 0 ? <p className="text-sm text-slate-400 text-center py-4">No saved analyses</p> : savedAnalyses.map(a => (
-                <div key={a.id} className="p-3 bg-slate-50 rounded-xl hover:bg-slate-100 cursor-pointer">
-                  <p className="text-sm font-medium text-slate-700">{a.title}</p>
-                  <p className="text-xs text-slate-400 mt-0.5">{a.date}</p>
-                  <p className="text-xs text-slate-500 mt-2 line-clamp-2">{a.snippet}</p>
-                </div>
-              ))}
-            </div>
-          )}
-          {activeTab === 'history' && (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-medium text-slate-500">CHAT HISTORY</span>
-                <button onClick={fetchConversations} disabled={isLoadingHistory} className="p-1 hover:bg-slate-100 rounded"><RefreshCw className={`w-3 h-3 text-slate-400 ${isLoadingHistory ? 'animate-spin' : ''}`} /></button>
+          {/* Current Session - Blue Gradient */}
+          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-4 shadow-sm">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
+                <Sparkles className="w-4 h-4 text-white" />
               </div>
-              {isLoadingHistory ? (
-                <div className="text-center py-8"><Loader2 className="w-6 h-6 text-slate-300 mx-auto animate-spin" /></div>
-              ) : conversations.length === 0 ? (
-                <div className="text-center py-8">
-                  <Clock className="w-10 h-10 text-slate-300 mx-auto mb-2" />
-                  <p className="text-sm text-slate-400">No conversation history yet</p>
+              <h3 className="text-sm font-semibold text-blue-900">Current Session</h3>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-blue-700 font-medium">Messages</span>
+                <span className="px-2 py-0.5 bg-blue-200 text-blue-800 rounded-full font-semibold">{messages.length}</span>
+              </div>
+              {documentChatActive && (
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-blue-700 font-medium">Active Docs</span>
+                  <span className="px-2 py-0.5 bg-purple-200 text-purple-800 rounded-full font-semibold">{chatDocuments.size}</span>
                 </div>
-              ) : (
-                conversations.map(conv => (
-                  <div key={conv.id} className="p-3 bg-slate-50 rounded-xl hover:bg-slate-100 group">
-                    <div className="flex items-start gap-2">
-                      <button
-                        onClick={() => loadConversation(conv.id)}
-                        className="flex-1 text-left"
-                      >
-                        <p className="text-sm font-medium text-slate-700 truncate">{conv.title || 'Untitled Conversation'}</p>
-                        <p className="text-xs text-slate-400 mt-0.5">{new Date(conv.timestamp).toLocaleDateString()}</p>
-                        <p className="text-xs text-slate-500 mt-1">{conv.messageCount || 0} messages</p>
-                      </button>
-                      <button
-                        onClick={() => deleteConversation(conv.id)}
-                        className="p-1 hover:bg-red-100 rounded opacity-0 group-hover:opacity-100"
-                      >
-                        <Trash2 className="w-4 h-4 text-red-400" />
-                      </button>
-                    </div>
-                  </div>
-                ))
               )}
             </div>
-          )}
-          {activeTab === 'chat' && (
-            <div className="p-3 bg-blue-50 rounded-xl border border-blue-100">
-              <div className="flex items-center gap-2"><Sparkles className="w-4 h-4 text-blue-500" /><span className="text-sm font-medium text-blue-700">Current Session</span></div>
-              <p className="text-xs text-blue-600 mt-1">{messages.length} messages • {documents.filter(d => d.status === 'ready').length} docs</p>
+          </div>
+
+          {/* Chat History - Purple Gradient */}
+          <div className="bg-gradient-to-br from-purple-50 to-pink-50 border border-purple-200 rounded-xl p-4 shadow-sm">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center">
+                  <Clock className="w-4 h-4 text-white" />
+                </div>
+                <h3 className="text-sm font-semibold text-purple-900">Chat History</h3>
+              </div>
+              <button
+                onClick={fetchConversations}
+                disabled={isLoadingHistory}
+                className="p-1.5 hover:bg-purple-100 rounded-lg transition-colors"
+                title="Refresh history"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 text-purple-600 ${isLoadingHistory ? 'animate-spin' : ''}`} />
+              </button>
             </div>
-          )}
+
+            {isLoadingHistory ? (
+              <div className="text-center py-6">
+                <Loader2 className="w-5 h-5 text-purple-400 mx-auto animate-spin" />
+              </div>
+            ) : conversations.length === 0 ? (
+              <div className="text-center py-6">
+                <Clock className="w-8 h-8 text-purple-300 mx-auto mb-2" />
+                <p className="text-xs text-purple-600">No history yet</p>
+              </div>
+            ) : (
+              <div className="space-y-2 max-h-60 overflow-y-auto">
+                {conversations.slice(0, 5).map(conv => (
+                  <button
+                    key={conv.id}
+                    onClick={() => loadConversation(conv.id)}
+                    className="w-full text-left p-2.5 bg-white hover:bg-purple-100 rounded-lg border border-purple-100 transition-colors group"
+                  >
+                    <p className="text-xs font-medium text-purple-900 truncate">{conv.title || 'Untitled'}</p>
+                    <div className="flex items-center justify-between mt-1">
+                      <p className="text-xs text-purple-600">{conv.messageCount || 0} msgs</p>
+                      <p className="text-xs text-purple-500">{new Date(conv.timestamp).toLocaleDateString()}</p>
+                    </div>
+                  </button>
+                ))}
+                {conversations.length > 5 && (
+                  <p className="text-xs text-purple-600 text-center pt-2">+{conversations.length - 5} more</p>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Saved Analyses - Green Gradient */}
+          <div className="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200 rounded-xl p-4 shadow-sm">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center">
+                <Bookmark className="w-4 h-4 text-white" />
+              </div>
+              <h3 className="text-sm font-semibold text-emerald-900">Saved</h3>
+            </div>
+
+            {savedAnalyses.length === 0 ? (
+              <div className="text-center py-6">
+                <Bookmark className="w-8 h-8 text-emerald-300 mx-auto mb-2" />
+                <p className="text-xs text-emerald-600">No saved items</p>
+              </div>
+            ) : (
+              <div className="space-y-2 max-h-60 overflow-y-auto">
+                {savedAnalyses.slice(0, 5).map(a => (
+                  <div key={a.id} className="p-2.5 bg-white hover:bg-emerald-100 rounded-lg border border-emerald-100 cursor-pointer transition-colors">
+                    <p className="text-xs font-medium text-emerald-900 truncate">{a.title}</p>
+                    <p className="text-xs text-emerald-600 mt-1 line-clamp-2">{a.snippet}</p>
+                  </div>
+                ))}
+                {savedAnalyses.length > 5 && (
+                  <p className="text-xs text-emerald-600 text-center pt-2">+{savedAnalyses.length - 5} more</p>
+                )}
+              </div>
+            )}
+          </div>
+
         </div>
 
         {/* Bottom Section - User Info & Actions */}
@@ -1475,9 +1503,6 @@ function App() {
               <div className={`w-2 h-2 rounded-full ${isLoading ? 'bg-amber-400 animate-pulse' : 'bg-green-400'}`} />
               <span className="text-sm text-slate-600">{isLoading ? 'Processing...' : 'Ready'}</span>
             </div>
-            {documents.filter(d => d.status === 'ready').length > 0 && chatMode === 'research' && (
-              <div className="flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-600 rounded-lg text-xs"><FileText className="w-3 h-3" />{documents.filter(d => d.status === 'ready').length} docs</div>
-            )}
           </div>
 
           {/* Center - Mode Toggle */}
