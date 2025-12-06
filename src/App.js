@@ -122,7 +122,6 @@ const getUserId = () => {
 };
 
 const formatTime = (date) => new Date(date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-const formatTimeLeft = (s) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
 
 // Date grouping helpers for chat history
 const getDateGroup = (timestamp) => {
@@ -563,8 +562,6 @@ function App() {
   const [copiedId, setCopiedId] = useState(null);
   const [feedbackModal, setFeedbackModal] = useState({ open: false, messageId: null });
   const [userFeedback, setUserFeedback] = useState({});
-  const [lastRequestTime, setLastRequestTime] = useState(0);
-  const [cooldownTimeLeft, setCooldownTimeLeft] = useState(0);
   const [documents, setDocuments] = useState([]);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -706,12 +703,6 @@ function App() {
     }
   }, [user, authLoading, fetchUserDocuments]);
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
-  useEffect(() => {
-    if (cooldownTimeLeft > 0) {
-      const t = setTimeout(() => setCooldownTimeLeft(cooldownTimeLeft - 1), 1000);
-      return () => clearTimeout(t);
-    }
-  }, [cooldownTimeLeft]);
   useEffect(() => {
     localStorage.setItem('dr_gini_chat_mode', chatMode);
   }, [chatMode]);
@@ -1176,19 +1167,9 @@ function App() {
     }
   };
 
-  const checkCooldown = () => {
-    const elapsed = Date.now() - lastRequestTime;
-    if (elapsed < CONFIG.REQUEST_COOLDOWN) { setCooldownTimeLeft(Math.ceil((CONFIG.REQUEST_COOLDOWN - elapsed) / 1000)); return false; }
-    setCooldownTimeLeft(0); return true;
-  };
-
   const sendMessage = async () => {
     logger.debug('sendMessage called', { isLoading, messageLength: inputMessage.length, mode: chatMode });
     if (!inputMessage.trim() || isLoading) return;
-    if (!checkCooldown()) {
-      setMessages(p => [...p, { id: Date.now(), type: 'bot', content: `Please wait ${formatTimeLeft(cooldownTimeLeft)}.`, timestamp: new Date(), isError: true }]);
-      return;
-    }
 
     const imageReq = detectImageRequirement(inputMessage);
     const userDocs = documents.filter(d => d.status === 'ready').map(d => ({ id: d.driveFileId, name: d.name, type: d.addedToKnowledge ? 'knowledge' : 'explore' }));
@@ -1199,7 +1180,6 @@ function App() {
     const currentMsg = inputMessage;
     setInputMessage('');
     setIsLoading(true);
-    setLastRequestTime(Date.now());
 
     // Prepare message data with selected documents
     // Priority: 1. Document chat mode docs, 2. Legacy checkbox selection, 3. None
@@ -1803,7 +1783,6 @@ function App() {
                 <span>Clear Chat</span>
               </button>
             )}
-            {cooldownTimeLeft > 0 && <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-50 text-amber-700 rounded-lg text-sm"><Clock className="w-4 h-4" />{formatTimeLeft(cooldownTimeLeft)}</div>}
           </div>
         </div>
 
@@ -1968,8 +1947,8 @@ function App() {
                     ? 'Search the web...'
                     : 'Ask about molecules, search papers, or chat with documents...'
                 }
-                className="flex-1 bg-transparent border-none outline-none resize-none text-sm text-slate-700 placeholder:text-slate-400 py-2 max-h-32" rows={1} disabled={isLoading || cooldownTimeLeft > 0} />
-              <button onClick={sendMessage} disabled={!inputMessage.trim() || isLoading || cooldownTimeLeft > 0}
+                className="flex-1 bg-transparent border-none outline-none resize-none text-sm text-slate-700 placeholder:text-slate-400 py-2 max-h-32" rows={1} disabled={isLoading} />
+              <button onClick={sendMessage} disabled={!inputMessage.trim() || isLoading}
                 className="p-2.5 bg-slate-900 text-white rounded-xl hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed"><Send className="w-4 h-4" /></button>
             </div>
             <div className="flex items-center justify-between mt-3">
