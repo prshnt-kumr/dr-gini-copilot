@@ -553,7 +553,7 @@ const FeedbackModal = ({ isOpen, onClose, onSubmit }) => {
 function App() {
   const [messages, setMessages] = useState([{
     id: 1, type: 'bot',
-    content: "Hello! I'm Dr. Gini, your AI research copilot. I can analyze documents, visualize molecules, and search for papers. Your uploaded documents are saved and will be available in future sessions.",
+    content: "I'm Dr. Gini, your AI research copilot",
     timestamp: new Date(),
     isWelcome: true
   }]);
@@ -721,9 +721,7 @@ function App() {
     setMessages(prev => {
       const welcomeMsg = prev.find(m => m.isWelcome);
       if (welcomeMsg) {
-        const newContent = chatMode === 'web-search'
-          ? "I am Dr. Gini, how can I help you today?"
-          : "Hello! I'm Dr. Gini, your AI research copilot. I can analyze documents, visualize molecules, and search for papers. Your uploaded documents are saved and will be available in future sessions.";
+        const newContent = "I'm Dr. Gini, your AI research copilot";
 
         return prev.map(m => m.isWelcome ? { ...m, content: newContent } : m);
       }
