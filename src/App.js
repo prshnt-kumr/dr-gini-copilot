@@ -45,27 +45,34 @@ const formatMarkdownToHTML = (text) => {
 
   // Add custom styling classes to elements
   html = html
-    // Style headers
-    .replace(/<h1>/g, '<h1 class="text-2xl font-bold text-slate-900 mb-3 mt-4">')
-    .replace(/<h2>/g, '<h2 class="text-xl font-bold text-slate-800 mb-2 mt-3">')
-    .replace(/<h3>/g, '<h3 class="text-lg font-semibold text-slate-800 mb-2 mt-3">')
-    .replace(/<h4>/g, '<h4 class="text-base font-semibold text-slate-700 mb-2 mt-2">')
-    // Style paragraphs
-    .replace(/<p>/g, '<p class="text-slate-700 mb-3 leading-relaxed">')
-    // Style lists
-    .replace(/<ul>/g, '<ul class="list-disc list-inside mb-3 space-y-1 text-slate-700">')
-    .replace(/<ol>/g, '<ol class="list-decimal list-inside mb-3 space-y-1 text-slate-700">')
-    .replace(/<li>/g, '<li class="ml-2">')
-    // Style code blocks
-    .replace(/<pre>/g, '<pre class="bg-slate-900 text-slate-100 p-3 rounded-lg overflow-x-auto mb-3">')
-    .replace(/<code>/g, '<code class="bg-slate-100 text-slate-800 px-1.5 py-0.5 rounded text-sm font-mono">')
+    // Style headers with better spacing and hierarchy
+    .replace(/<h1>/g, '<h1 class="text-2xl font-bold text-slate-900 mb-4 mt-6 pb-2 border-b-2 border-blue-500">')
+    .replace(/<h2>/g, '<h2 class="text-xl font-bold text-blue-700 mb-3 mt-6 flex items-center gap-2"><span class="w-1 h-6 bg-blue-500 rounded"></span>')
+    .replace(/<\/h2>/g, '</h2>')
+    .replace(/<h3>/g, '<h3 class="text-lg font-semibold text-slate-800 mb-3 mt-4 pl-3 border-l-3 border-purple-400">')
+    .replace(/<h4>/g, '<h4 class="text-base font-semibold text-slate-700 mb-2 mt-3">')
+    // Style paragraphs with better spacing
+    .replace(/<p>/g, '<p class="text-slate-700 mb-4 leading-relaxed text-sm">')
+    // Style lists with better spacing and indentation
+    .replace(/<ul>/g, '<ul class="mb-4 space-y-2 text-slate-700">')
+    .replace(/<ol>/g, '<ol class="mb-4 space-y-2 text-slate-700">')
+    .replace(/<li>/g, '<li class="ml-6 pl-2 text-sm leading-relaxed relative before:content-[\'\'] before:absolute before:left-[-16px] before:top-[10px] before:w-1.5 before:h-1.5 before:bg-blue-500 before:rounded-full">')
+    // Style code blocks and inline code
+    .replace(/<pre>/g, '<pre class="bg-slate-900 text-slate-100 p-4 rounded-lg overflow-x-auto mb-4 text-sm shadow-lg">')
+    .replace(/<code>/g, '<code class="bg-purple-50 text-purple-800 px-2 py-0.5 rounded text-xs font-mono border border-purple-200">')
     // Style blockquotes
-    .replace(/<blockquote>/g, '<blockquote class="border-l-4 border-blue-500 pl-4 italic text-slate-600 mb-3">')
-    // Style strong and em
-    .replace(/<strong>/g, '<strong class="font-semibold text-slate-900">')
-    .replace(/<em>/g, '<em class="italic text-slate-700">')
-    // Style links
-    .replace(/<a /g, '<a class="text-blue-600 hover:text-blue-700 underline" target="_blank" rel="noopener noreferrer" ');
+    .replace(/<blockquote>/g, '<blockquote class="border-l-4 border-blue-500 bg-blue-50 pl-4 py-2 italic text-slate-700 mb-4 rounded-r">')
+    // Style strong and em with better contrast
+    .replace(/<strong>/g, '<strong class="font-bold text-slate-900 bg-yellow-50 px-1 rounded">')
+    .replace(/<em>/g, '<em class="italic text-blue-700">')
+    // Style links with hover effect
+    .replace(/<a /g, '<a class="text-blue-600 hover:text-blue-800 hover:underline font-medium" target="_blank" rel="noopener noreferrer" ')
+    // Add table styling if present
+    .replace(/<table>/g, '<table class="min-w-full border-collapse mb-4 text-sm">')
+    .replace(/<thead>/g, '<thead class="bg-slate-100">')
+    .replace(/<th>/g, '<th class="border border-slate-300 px-4 py-2 text-left font-semibold text-slate-700">')
+    .replace(/<td>/g, '<td class="border border-slate-300 px-4 py-2 text-slate-700">')
+    .replace(/<tr>/g, '<tr class="hover:bg-slate-50">');
 
   return html;
 };
