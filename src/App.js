@@ -1785,7 +1785,10 @@ function App() {
           <div className="ml-auto flex items-center gap-2">
             {messages.length > 1 && (
               <button
-                onClick={() => setMessages([messages[0]])}
+                onClick={() => {
+                  setMessages([messages[0]]);
+                  setCurrentConversationId(null); // Reset conversation ID for new conversation
+                }}
                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-all"
                 title="Clear chat and start fresh"
               >
