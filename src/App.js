@@ -839,11 +839,23 @@ function App() {
             messageCount: parseInt(conv.messageCount) || 0, // Convert string to number
             chatMode: conv.chatMode,
             timestamp: conv.updatedAt || conv.timestamp, // updatedAt → timestamp
-            updatedAt: conv.updatedAt           // Keep original too
+            updatedAt: conv.updatedAt,          // Keep original too
+            isFavorite: conv.isFavorite || false
           }));
 
-          console.log('[DEBUG] Mapped conversations:', mappedConversations);
-          setConversations(mappedConversations);
+          // De-duplicate conversations (keep latest entry for each unique conversationId)
+          const conversationMap = new Map();
+          mappedConversations.forEach(conv => {
+            const existing = conversationMap.get(conv.conversationId);
+            if (!existing || new Date(conv.timestamp) > new Date(existing.timestamp)) {
+              conversationMap.set(conv.conversationId, conv);
+            }
+          });
+          const deduplicatedConversations = Array.from(conversationMap.values());
+
+          console.log('[DEBUG] Mapped conversations:', mappedConversations.length);
+          console.log('[DEBUG] After deduplication:', deduplicatedConversations.length);
+          setConversations(deduplicatedConversations);
         } else {
           console.log('[DEBUG] No conversations found in response');
         }
