@@ -1178,7 +1178,10 @@ function App() {
     logger.debug('sendMessage called', { isLoading, messageLength: inputMessage.length, mode: chatMode });
     if (!inputMessage.trim() || isLoading) return;
 
-    const imageReq = detectImageRequirement(inputMessage);
+    // Only detect image requirements for research mode (not web-search, not document chat)
+    const imageReq = (chatMode === 'research' && !documentChatActive && chatDocuments.size === 0)
+      ? detectImageRequirement(inputMessage)
+      : { needsImage: false };
     const userDocs = documents.filter(d => d.status === 'ready').map(d => ({ id: d.driveFileId, name: d.name, type: d.addedToKnowledge ? 'knowledge' : 'explore' }));
 
     const userMessageId = Date.now();
