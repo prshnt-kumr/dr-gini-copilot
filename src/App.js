@@ -862,7 +862,13 @@ function App() {
       const actualUserId = user && user.email ? user.email : getUserId();
       const actualSessionId = getSessionId();
       const conversationTitle = messages.find(m => m.type === 'user')?.content.substring(0, 50) || 'New Conversation';
-      const convId = currentConversationId || `conv_${Date.now()}`;
+
+      // Generate and set conversation ID IMMEDIATELY to prevent duplicates
+      let convId = currentConversationId;
+      if (!convId) {
+        convId = `conv_${Date.now()}`;
+        setCurrentConversationId(convId); // Set immediately to prevent race condition
+      }
 
       const payload = {
         action: 'save',
@@ -891,12 +897,7 @@ function App() {
         body: JSON.stringify(payload)
       });
       if (response.ok) {
-        const data = await response.json();
-        const result = Array.isArray(data) ? data[0] : data;
-        if (result.conversationId && !currentConversationId) {
-          setCurrentConversationId(result.conversationId);
-        }
-        logger.info('Conversation saved');
+        logger.info('Conversation saved', { conversationId: convId });
       }
     } catch (e) {
       logger.error('Failed to save conversation', e);
