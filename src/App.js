@@ -977,16 +977,6 @@ function App() {
             setChatMode(result.chatMode);
           }
           logger.info('Conversation loaded');
-
-          // Show continuation message
-          const convTitle = result.title || conversations.find(c => c.id === conversationId)?.title || 'conversation';
-          setMessages(prev => [...prev, {
-            id: Date.now(),
-            type: 'bot',
-            content: `💬 Ready to continue: **${convTitle}**\n\nType your message below to continue this conversation.`,
-            timestamp: new Date(),
-            isWelcome: false
-          }]);
         } else {
           // No messages found
           console.log('[DEBUG] No valid messages found. parsedMessages:', parsedMessages);
