@@ -1174,6 +1174,24 @@ function App() {
     }
   };
 
+  // Handle mode switching with explicit save
+  const handleModeSwitch = async (newMode) => {
+    if (chatMode === newMode) return; // Already in this mode
+
+    // Save current conversation if there are messages
+    if (messages.length > 1) {
+      logger.info('Saving conversation before mode switch', { from: chatMode, to: newMode });
+      await saveConversation();
+    }
+
+    // Clear chat and reset for new conversation
+    setMessages([messages.find(m => m.isWelcome)]);
+    setCurrentConversationId(null);
+    setChatMode(newMode);
+
+    logger.info('Mode switched', { newMode });
+  };
+
   const sendMessage = async () => {
     logger.debug('sendMessage called', { isLoading, messageLength: inputMessage.length, mode: chatMode });
     if (!inputMessage.trim() || isLoading) return;
@@ -1758,7 +1776,7 @@ function App() {
           {/* Center - Mode Toggle */}
           <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-0.5 bg-gradient-to-r from-slate-50 to-slate-100 rounded-xl p-1 shadow-sm border border-slate-200">
             <button
-              onClick={() => setChatMode('research')}
+              onClick={() => handleModeSwitch('research')}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${
                 chatMode === 'research'
                   ? 'bg-white text-blue-600 shadow-md scale-105'
@@ -1769,7 +1787,7 @@ function App() {
               <span>Research</span>
             </button>
             <button
-              onClick={() => setChatMode('web-search')}
+              onClick={() => handleModeSwitch('web-search')}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${
                 chatMode === 'web-search'
                   ? 'bg-white text-blue-600 shadow-md scale-105'
