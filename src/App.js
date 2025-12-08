@@ -1949,47 +1949,21 @@ function App() {
         )}
 
         <div className="border-t border-slate-200 bg-white p-4">
-          <div className="max-w-3xl mx-auto">
-            {/* Selected Documents Chips */}
-            {documentChatActive && chatDocuments.size > 0 && (
-              <div className="mb-3 flex flex-wrap items-center gap-2 p-3 bg-blue-50 border border-blue-200 rounded-xl">
-                <span className="text-xs font-medium text-blue-700">Chatting with:</span>
-                {Array.from(chatDocuments).map(docId => {
-                  const doc = documents.find(d => d.id === docId);
-                  if (!doc) return null;
-                  return (
-                    <div key={docId} className="flex items-center gap-1.5 px-2.5 py-1 bg-white border border-blue-300 rounded-lg shadow-sm">
-                      <FileText className="w-3.5 h-3.5 text-blue-600" />
-                      <span className="text-xs font-medium text-slate-700 max-w-[150px] truncate">{doc.name}</span>
-                      <button
-                        onClick={() => handleRemoveDocFromChat(docId)}
-                        className="ml-1 p-0.5 hover:bg-red-100 rounded-full transition-colors"
-                        title="Remove document"
-                      >
-                        <X className="w-3 h-3 text-slate-400 hover:text-red-600" />
-                      </button>
-                    </div>
-                  );
-                })}
-                <button
-                  onClick={handleClearDocumentChat}
-                  className="ml-auto text-xs text-slate-500 hover:text-slate-700 underline"
-                >
-                  Clear all
-                </button>
-              </div>
-            )}
+          <div className="max-w-4xl mx-auto">
+            {/* Three Column Layout: Left Panel | Center Input | Right Panel */}
+            <div className="flex items-stretch gap-3">
 
-            <div className="flex items-end gap-3 bg-slate-50 rounded-2xl p-2 border border-slate-200 focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100">
+              {/* LEFT PANEL - Upload & My Docs Buttons (Always visible in research mode) */}
               {chatMode === 'research' && (
-                <>
-                  {/* Upload Button - Green Theme */}
+                <div className="flex flex-col gap-2 justify-center">
+                  {/* Upload Button */}
                   <button
                     onClick={() => setUploadModalOpen(true)}
-                    className="relative p-2 text-green-600 hover:text-green-700 hover:bg-green-50 rounded-xl transition-colors"
-                    title={`Upload documents${documents.filter(d => !d.addedToKnowledge).length > 0 ? ` (${documents.filter(d => !d.addedToKnowledge).length} session docs)` : ''}`}
+                    className="relative flex items-center gap-2 px-3 py-2 text-green-600 hover:text-green-700 bg-green-50 hover:bg-green-100 rounded-xl transition-colors border border-green-200"
+                    title="Upload documents"
                   >
-                    <Upload className="w-5 h-5" />
+                    <Upload className="w-4 h-4" />
+                    <span className="text-xs font-medium hidden sm:inline">Upload</span>
                     {documents.filter(d => !d.addedToKnowledge).length > 0 && (
                       <span className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 text-white text-xs rounded-full flex items-center justify-center font-semibold">
                         {documents.filter(d => !d.addedToKnowledge).length}
@@ -1997,41 +1971,113 @@ function App() {
                     )}
                   </button>
 
-                  {/* Doc Chat Button - Purple Theme */}
+                  {/* My Docs Button */}
                   <button
                     onClick={handleOpenDocSelector}
-                    className={`p-2 rounded-xl transition-colors ${documentChatActive ? 'text-purple-700 bg-purple-100 hover:bg-purple-200' : 'text-purple-500 hover:text-purple-700 hover:bg-purple-50'}`}
-                    title="Chat with uploaded documents"
+                    className={`flex items-center gap-2 px-3 py-2 rounded-xl transition-colors border ${documentChatActive ? 'text-purple-700 bg-purple-100 hover:bg-purple-200 border-purple-300' : 'text-purple-500 hover:text-purple-700 bg-purple-50 hover:bg-purple-100 border-purple-200'}`}
+                    title="Select documents to chat with"
                   >
-                    <FileText className="w-5 h-5" />
+                    <FileText className="w-4 h-4" />
+                    <span className="text-xs font-medium hidden sm:inline">My Docs</span>
                   </button>
-                </>
+                </div>
               )}
-              <textarea value={inputMessage} onChange={(e) => setInputMessage(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
-                placeholder={
-                  documentChatActive
-                    ? 'Ask about your selected documents...'
-                    : chatMode === 'web-search'
-                    ? 'Search the web...'
-                    : 'Ask about molecules, search papers, or chat with documents...'
-                }
-                className="flex-1 bg-transparent border-none outline-none resize-none text-sm text-slate-700 placeholder:text-slate-400 py-2 max-h-32" rows={1} disabled={isLoading} />
-              <button onClick={sendMessage} disabled={!inputMessage.trim() || isLoading}
-                className="p-2.5 bg-slate-900 text-white rounded-xl hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed"><Send className="w-4 h-4" /></button>
-            </div>
-            <div className="flex items-center justify-between mt-3">
-              {chatMode === 'research' && !documentChatActive ? (
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" checked={webSearchEnabled} onChange={(e) => setWebSearchEnabled(e.target.checked)} className="w-4 h-4 rounded border-slate-300 text-blue-600" />
-                  <Globe className={`w-4 h-4 ${webSearchEnabled ? 'text-blue-600' : 'text-slate-400'}`} />
-                  <span className={`text-sm ${webSearchEnabled ? 'text-blue-600 font-medium' : 'text-slate-500'}`}>Include web results</span>
-                </label>
-              ) : (
-                <div></div>
+
+              {/* CENTER - Clean Input Area */}
+              <div className="flex-1 flex flex-col">
+                <div className="flex items-end gap-2 bg-slate-50 rounded-2xl p-2 border border-slate-200 focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100">
+                  <textarea value={inputMessage} onChange={(e) => setInputMessage(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
+                    placeholder={
+                      documentChatActive
+                        ? 'Ask about your selected documents...'
+                        : chatMode === 'web-search'
+                        ? 'Search the web...'
+                        : 'Ask about molecules, search papers...'
+                    }
+                    className="flex-1 bg-transparent border-none outline-none resize-none text-sm text-slate-700 placeholder:text-slate-400 py-2 max-h-32" rows={1} disabled={isLoading} />
+                  <button onClick={sendMessage} disabled={!inputMessage.trim() || isLoading}
+                    className="p-2.5 bg-slate-900 text-white rounded-xl hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed"><Send className="w-4 h-4" /></button>
+                </div>
+                {/* Web Search Toggle - Below Input */}
+                <div className="flex items-center justify-between mt-2 px-1">
+                  {chatMode === 'research' && !documentChatActive ? (
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input type="checkbox" checked={webSearchEnabled} onChange={(e) => setWebSearchEnabled(e.target.checked)} className="w-4 h-4 rounded border-slate-300 text-blue-600" />
+                      <Globe className={`w-4 h-4 ${webSearchEnabled ? 'text-blue-600' : 'text-slate-400'}`} />
+                      <span className={`text-sm ${webSearchEnabled ? 'text-blue-600 font-medium' : 'text-slate-500'}`}>Include web results</span>
+                    </label>
+                  ) : (
+                    <div></div>
+                  )}
+                  <span className="text-xs text-slate-400">Session: {getSessionId().slice(-8)}</span>
+                </div>
+              </div>
+
+              {/* RIGHT PANEL - Selected Documents (Only when docs selected) */}
+              {documentChatActive && chatDocuments.size > 0 && (
+                <div className="hidden md:flex flex-col w-48 p-2 bg-blue-50 border border-blue-200 rounded-xl">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-semibold text-blue-700">Selected Docs</span>
+                    <button
+                      onClick={handleClearDocumentChat}
+                      className="text-xs text-blue-500 hover:text-blue-700 hover:underline"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                  <div className="flex-1 overflow-y-auto max-h-24 space-y-1">
+                    {Array.from(chatDocuments).map(docId => {
+                      const doc = documents.find(d => d.id === docId);
+                      if (!doc) return null;
+                      return (
+                        <div key={docId} className="flex items-center gap-1.5 px-2 py-1 bg-white border border-blue-200 rounded-lg text-xs">
+                          <FileText className="w-3 h-3 text-blue-600 flex-shrink-0" />
+                          <span className="text-slate-700 truncate flex-1" title={doc.name}>{doc.name}</span>
+                          <button
+                            onClick={() => handleRemoveDocFromChat(docId)}
+                            className="p-0.5 hover:bg-red-100 rounded-full transition-colors flex-shrink-0"
+                            title="Remove"
+                          >
+                            <X className="w-3 h-3 text-slate-400 hover:text-red-600" />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
               )}
-              <span className="text-xs text-slate-400">Session: {getSessionId().slice(-8)}</span>
             </div>
+
+            {/* Mobile: Selected Documents (shown below input on small screens) */}
+            {documentChatActive && chatDocuments.size > 0 && (
+              <div className="md:hidden mt-3 p-2 bg-blue-50 border border-blue-200 rounded-xl">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-semibold text-blue-700">Selected Docs ({chatDocuments.size})</span>
+                  <button
+                    onClick={handleClearDocumentChat}
+                    className="text-xs text-blue-500 hover:text-blue-700 hover:underline"
+                  >
+                    Clear
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {Array.from(chatDocuments).map(docId => {
+                    const doc = documents.find(d => d.id === docId);
+                    if (!doc) return null;
+                    return (
+                      <div key={docId} className="flex items-center gap-1 px-2 py-1 bg-white border border-blue-200 rounded-lg text-xs">
+                        <FileText className="w-3 h-3 text-blue-600" />
+                        <span className="text-slate-700 max-w-[100px] truncate">{doc.name}</span>
+                        <button onClick={() => handleRemoveDocFromChat(docId)} className="p-0.5 hover:bg-red-100 rounded-full">
+                          <X className="w-3 h-3 text-slate-400 hover:text-red-600" />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
