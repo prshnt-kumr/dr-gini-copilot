@@ -1311,9 +1311,13 @@ function App() {
       if (chatMode === 'web-search') {
         webhookUrl = CONFIG.WEB_SEARCH_WEBHOOK_URL;
       } else if (documentChatActive && chatDocuments.size > 0) {
-        // Document chat mode - user clicked "My Documents" button -> HF Space
+        // Document chat mode - user clicked "My Documents" button
         webhookUrl = CONFIG.DOCUMENT_CHAT_WEBHOOK_URL;
-        logger.info('Using HF Space document chat', { count: chatDocuments.size });
+        logger.info('Using document chat webhook', { count: chatDocuments.size });
+      } else if (selectedDocIds.length > 0) {
+        // Legacy: If user has selected specific documents via checkboxes
+        webhookUrl = CONFIG.DOCUMENT_CHAT_WEBHOOK_URL;
+        logger.info('Using document chat webhook with selected docs', { count: selectedDocIds.length });
       } else {
         // Default general research webhook
         webhookUrl = CONFIG.TEXT_WEBHOOK_URL;
