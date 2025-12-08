@@ -1949,13 +1949,13 @@ function App() {
         )}
 
         <div className="border-t border-slate-200 bg-white p-4">
-          <div className="max-w-4xl mx-auto">
+          <div className="max-w-5xl mx-auto px-4">
             {/* Three Column Layout: Left Panel | Center Input | Right Panel */}
-            <div className="flex items-stretch gap-3">
+            <div className="flex items-stretch gap-4">
 
               {/* LEFT PANEL - Upload & My Docs Buttons (Always visible in research mode) */}
               {chatMode === 'research' && (
-                <div className="flex flex-col gap-2 justify-center">
+                <div className="flex flex-col gap-2 justify-center ml-2">
                   {/* Upload Button */}
                   <button
                     onClick={() => setUploadModalOpen(true)}
@@ -2016,7 +2016,7 @@ function App() {
 
               {/* RIGHT PANEL - Selected Documents (Only when docs selected) */}
               {documentChatActive && chatDocuments.size > 0 && (
-                <div className="hidden md:flex flex-col w-48 p-2 bg-blue-50 border border-blue-200 rounded-xl">
+                <div className="hidden md:flex flex-col w-64 p-3 bg-blue-50 border border-blue-200 rounded-xl mr-2">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-semibold text-blue-700">Selected Docs</span>
                     <button
