@@ -1956,29 +1956,39 @@ function App() {
               {/* LEFT PANEL - Upload & My Docs Buttons (Always visible in research mode) */}
               {chatMode === 'research' && (
                 <div className="flex flex-col gap-2 justify-center ml-2">
-                  {/* Upload Button */}
+                  {/* Upload Button - No badge, just action */}
                   <button
                     onClick={() => setUploadModalOpen(true)}
-                    className="relative flex items-center gap-2 px-3 py-2 text-green-600 hover:text-green-700 bg-green-50 hover:bg-green-100 rounded-xl transition-colors border border-green-200"
+                    className="flex items-center gap-2 px-3 py-2 text-green-600 hover:text-green-700 bg-green-50 hover:bg-green-100 rounded-xl transition-colors border border-green-200"
                     title="Upload documents"
                   >
                     <Upload className="w-4 h-4" />
                     <span className="text-xs font-medium hidden sm:inline">Upload</span>
-                    {documents.filter(d => !d.addedToKnowledge).length > 0 && (
-                      <span className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 text-white text-xs rounded-full flex items-center justify-center font-semibold">
-                        {documents.filter(d => !d.addedToKnowledge).length}
-                      </span>
-                    )}
                   </button>
 
-                  {/* My Docs Button */}
+                  {/* My Docs Button - Shows knowledge (purple) and session (green) badges */}
                   <button
                     onClick={handleOpenDocSelector}
-                    className={`flex items-center gap-2 px-3 py-2 rounded-xl transition-colors border ${documentChatActive ? 'text-purple-700 bg-purple-100 hover:bg-purple-200 border-purple-300' : 'text-purple-500 hover:text-purple-700 bg-purple-50 hover:bg-purple-100 border-purple-200'}`}
-                    title="Select documents to chat with"
+                    className={`relative flex items-center gap-2 px-3 py-2 rounded-xl transition-colors border ${documentChatActive ? 'text-purple-700 bg-purple-100 hover:bg-purple-200 border-purple-300' : 'text-purple-500 hover:text-purple-700 bg-purple-50 hover:bg-purple-100 border-purple-200'}`}
+                    title={`My Documents: ${documents.filter(d => d.addedToKnowledge).length} Knowledge, ${documents.filter(d => !d.addedToKnowledge).length} Session`}
                   >
                     <FileText className="w-4 h-4" />
                     <span className="text-xs font-medium hidden sm:inline">My Docs</span>
+                    {/* Badge container */}
+                    <div className="absolute -top-1 -right-1 flex gap-0.5">
+                      {/* Knowledge docs badge (purple) */}
+                      {documents.filter(d => d.addedToKnowledge).length > 0 && (
+                        <span className="w-4 h-4 bg-purple-500 text-white text-xs rounded-full flex items-center justify-center font-semibold" title="Knowledge docs">
+                          {documents.filter(d => d.addedToKnowledge).length}
+                        </span>
+                      )}
+                      {/* Session docs badge (green) */}
+                      {documents.filter(d => !d.addedToKnowledge).length > 0 && (
+                        <span className="w-4 h-4 bg-green-500 text-white text-xs rounded-full flex items-center justify-center font-semibold" title="Session docs">
+                          {documents.filter(d => !d.addedToKnowledge).length}
+                        </span>
+                      )}
+                    </div>
                   </button>
                 </div>
               )}
