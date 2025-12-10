@@ -1513,17 +1513,43 @@ function App() {
   };
 
   const handleQuickFeedback = async (messageId, rating) => {
+    // Immediately update UI for responsiveness
+    setUserFeedback(p => ({ ...p, [messageId]: { ...p[messageId], thumbs: rating } }));
+
     try {
-      await fetch(CONFIG.FEEDBACK_WEBHOOK_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messageId, sessionId: getSessionId(), userId: getAuthenticatedUserId(), thumbsRating: rating, feedbackType: 'quick', timestamp: new Date().toISOString() }) });
-      setUserFeedback(p => ({ ...p, [messageId]: { ...p[messageId], thumbs: rating } }));
-    } catch (e) { logger.error('Feedback error', e); }
+      const response = await fetch(CONFIG.FEEDBACK_WEBHOOK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messageId, sessionId: getSessionId(), userId: getAuthenticatedUserId(), thumbsRating: rating, feedbackType: 'quick', timestamp: new Date().toISOString() })
+      });
+      if (!response.ok) {
+        logger.warn('Feedback webhook returned non-OK status', { status: response.status });
+      }
+      logger.info('Quick feedback submitted', { messageId, rating });
+    } catch (e) {
+      logger.error('Feedback error', e);
+      // Keep the UI state even if webhook fails - feedback is still recorded locally
+    }
   };
 
   const submitDetailedFeedback = async (feedbackData) => {
+    // Close modal immediately for better UX
+    const msgId = feedbackModal.messageId;
+    setFeedbackModal({ open: false, messageId: null });
+
     try {
-      await fetch(CONFIG.FEEDBACK_WEBHOOK_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...feedbackData, messageId: feedbackModal.messageId, sessionId: getSessionId(), userId: getAuthenticatedUserId(), feedbackType: 'detailed', timestamp: new Date().toISOString() }) });
-      setFeedbackModal({ open: false, messageId: null });
-    } catch (e) { logger.error('Feedback error', e); }
+      const response = await fetch(CONFIG.FEEDBACK_WEBHOOK_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...feedbackData, messageId: msgId, sessionId: getSessionId(), userId: getAuthenticatedUserId(), feedbackType: 'detailed', timestamp: new Date().toISOString() })
+      });
+      if (!response.ok) {
+        logger.warn('Detailed feedback webhook returned non-OK status', { status: response.status });
+      }
+      logger.info('Detailed feedback submitted', { messageId: msgId, rating: feedbackData.rating });
+    } catch (e) {
+      logger.error('Feedback error', e);
+    }
   };
 
   const renderMessage = (msg) => {
