@@ -236,12 +236,142 @@ const WebSearchResults = ({ results, onAddToChat, onAddToKnowledge, onDownload }
 };
 
 // ============ MOLECULAR IMAGE COMPONENT ============
+// Single Molecular Image Card (reusable)
+const MolecularCard = ({ image, showTitle = true, compact = false }) => {
+  const [imageStatus, setImageStatus] = useState('loading');
+  const [showFullscreen, setShowFullscreen] = useState(false);
+
+  if (!image || !image.imageUrl) return null;
+
+  return (
+    <>
+      <div className={`bg-white rounded-xl border border-slate-200 shadow-sm ${compact ? 'p-3' : 'p-4'}`}>
+        {showTitle && (
+          <div className="flex items-center justify-center gap-2 mb-3">
+            <Beaker className="w-4 h-4 text-blue-600" />
+            <h4 className="text-blue-800 font-semibold text-sm capitalize">{image.compound || 'Structure'}</h4>
+          </div>
+        )}
+        <div className="text-center relative min-h-32 bg-slate-50 rounded-lg p-2">
+          {imageStatus === 'loading' && (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <Loader2 className="w-6 h-6 text-blue-500 animate-spin" />
+            </div>
+          )}
+          {imageStatus === 'error' && (
+            <div className="p-4 text-center">
+              <AlertCircle className="w-6 h-6 text-red-400 mx-auto mb-1" />
+              <p className="text-red-600 text-xs">Failed to load</p>
+            </div>
+          )}
+          <img
+            src={image.imageUrl}
+            alt={image.compound || 'Structure'}
+            className={`max-w-full h-auto rounded-lg mx-auto cursor-pointer hover:shadow-md transition-shadow ${imageStatus === 'loaded' ? 'block' : 'hidden'}`}
+            style={{ maxHeight: compact ? '180px' : '250px' }}
+            onLoad={() => setImageStatus('loaded')}
+            onError={() => setImageStatus('error')}
+            onClick={() => setShowFullscreen(true)}
+          />
+        </div>
+        {/* Metadata */}
+        <div className="mt-2 grid grid-cols-2 gap-1 text-xs">
+          {image.cid && (
+            <div className="bg-slate-50 rounded px-2 py-1">
+              <span className="text-slate-500">CID: </span>
+              <span className="font-medium text-slate-700">{image.cid}</span>
+            </div>
+          )}
+          {image.source && (
+            <div className="bg-slate-50 rounded px-2 py-1">
+              <span className="text-slate-500">Source: </span>
+              <span className="font-medium text-slate-700">{image.source}</span>
+            </div>
+          )}
+        </div>
+      </div>
+      {showFullscreen && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={() => setShowFullscreen(false)}>
+          <div className="relative max-w-4xl w-full">
+            <button onClick={() => setShowFullscreen(false)} className="absolute -top-10 right-0 text-white hover:text-slate-300"><X className="w-6 h-6" /></button>
+            <div className="text-center text-white mb-2 font-semibold capitalize">{image.compound}</div>
+            <img src={image.imageUrl} alt={image.compound} className="max-w-full max-h-[80vh] mx-auto rounded-lg bg-white p-4" />
+          </div>
+        </div>
+      )}
+    </>
+  );
+};
+
+// Comparison View - Side by Side for 2 molecules
+const MolecularComparison = ({ imageData }) => {
+  if (!imageData || !imageData.images || imageData.images.length < 2) return null;
+
+  const images = imageData.images;
+  const isComparison = imageData.isComparison && images.length === 2;
+  const hasThree = images.length === 3;
+
+  return (
+    <div className="bg-gradient-to-br from-slate-50 to-blue-50 border-2 border-blue-200 rounded-xl p-4 my-4 shadow-sm">
+      {/* Header */}
+      <div className="flex items-center justify-center gap-2 mb-4">
+        <Beaker className="w-5 h-5 text-blue-600" />
+        <h3 className="text-blue-800 font-bold text-lg">
+          {isComparison ? 'Molecular Comparison' : 'Molecular Structures'}
+        </h3>
+      </div>
+
+      {/* Side by Side Layout for 2 images */}
+      {isComparison && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <MolecularCard image={images[0]} compact={true} />
+          <MolecularCard image={images[1]} compact={true} />
+        </div>
+      )}
+
+      {/* 2 + 1 Layout for 3 images */}
+      {hasThree && (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <MolecularCard image={images[0]} compact={true} />
+            <MolecularCard image={images[1]} compact={true} />
+          </div>
+          <div className="flex justify-center">
+            <div className="w-full md:w-1/2">
+              <MolecularCard image={images[2]} compact={true} />
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Compound names summary */}
+      <div className="mt-4 pt-3 border-t border-blue-200 text-center">
+        <p className="text-xs text-slate-500">
+          Comparing: <span className="font-medium text-slate-700 capitalize">{imageData.compoundNames?.join(' vs ') || images.map(i => i.compound).join(' vs ')}</span>
+        </p>
+      </div>
+    </div>
+  );
+};
+
 const MolecularImage = ({ imageData }) => {
   const [imageStatus, setImageStatus] = useState('loading');
   const [showFullscreen, setShowFullscreen] = useState(false);
 
-  if (!imageData || !imageData.image_url) return null;
-  const { image_url, metadata = {} } = imageData;
+  // Handle new multi-image format
+  if (imageData && imageData.images && imageData.images.length > 1) {
+    return <MolecularComparison imageData={imageData} />;
+  }
+
+  // Handle single image - support both old and new format
+  const image_url = imageData?.image_url || imageData?.firstImage?.imageUrl;
+  const metadata = imageData?.metadata || {
+    compound: imageData?.firstImage?.compound || imageData?.compoundNames?.[0],
+    cid: imageData?.firstImage?.cid,
+    source: imageData?.firstImage?.source
+  };
+
+  if (!image_url) return null;
 
   return (
     <>
@@ -1149,8 +1279,8 @@ function App() {
           return result;
         }
 
-        if (isImage && item.success && item.image_url) {
-          // Special handling for molecular images
+        if (isImage && item.success && (item.image_url || item.images)) {
+          // Special handling for molecular images - supports single and multiple/comparison
           result.html = `__MOLECULAR_REACT_COMPONENT__${JSON.stringify(item)}__END_MOLECULAR_REACT_COMPONENT__`;
         } else {
           // Extract text content from JSON
